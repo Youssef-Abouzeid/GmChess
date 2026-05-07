@@ -114,20 +114,29 @@ class PlayerProfile:
 # Move selection core
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _move_characteristics(move_uci: str, board: chess.Board) -> dict:
+def _move_characteristics(move_uci: str, board: chess.Board, legal_count_cache: Optional[int] = None) -> dict:
     """
     Return a lightweight dict of binary/float features for a move.
 
     The board must NOT have the move pushed yet.
+    
+    Args:
+        move_uci: The move to analyze
+        board: Current board position
+        legal_count_cache: Optional pre-computed legal moves count to avoid O(n²)
     """
     move = chess.Move.from_uci(move_uci)
+    # Cache legal_moves.count() to avoid O(n²) when called in loops
+    if legal_count_cache is None:
+        legal_count_cache = board.legal_moves.count()
+    
     features: dict = {
         "is_capture":      board.is_capture(move),
         "is_en_passant":   board.is_en_passant(move),
         "is_castling":     board.is_castling(move),
         "gives_check":     False,
         "is_promotion":    move.promotion is not None,
-        "legal_count":     board.legal_moves.count(),   # proxy for complexity
+        "legal_count":     legal_count_cache,
     }
 
     # Push to check for check/mate (always undo)
@@ -237,6 +246,9 @@ def select_move_for_profile(
     # consistency=0 → temperature≈220 (nearly uniform)
     temperature = 10.0 + (1.0 - profile.errors.consistency) * 210.0
 
+    # Pre-compute legal moves count once to avoid O(n²) in _move_characteristics
+    legal_count_cache = board.legal_moves.count()
+
     weights = []
     for uci, raw_score in candidates:
         sc    = raw_score if raw_score is not None else best_cp - 300
@@ -245,7 +257,7 @@ def select_move_for_profile(
         # Softmax base weight
         base  = math.exp(-delta / temperature)
 
-        feats = _move_characteristics(uci, board)
+        feats = _move_characteristics(uci, board, legal_count_cache)
         smult = _style_multiplier(uci, feats, delta, profile, piece_cnt)
 
         weights.append(base * smult)

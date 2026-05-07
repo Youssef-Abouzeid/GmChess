@@ -307,6 +307,9 @@ class VisionLoop:
         self._active_color: str = "w"
         self._flipped:     bool = False
         self._enabled:     bool = True
+        
+        # Cache mss.mss() context to avoid expensive handle allocation every frame
+        self._mss_context: Optional[mss.mss] = None
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -337,6 +340,13 @@ class VisionLoop:
         if self._thread:
             self._thread.join(timeout=3)
         self._executor.shutdown(wait=False)
+        # Clean up mss context on shutdown
+        if self._mss_context is not None:
+            try:
+                self._mss_context.close()
+            except Exception:
+                pass
+            self._mss_context = None
         log.info("VisionLoop stopped")
 
     # ── Internal ─────────────────────────────────────────────────────────────
@@ -349,13 +359,17 @@ class VisionLoop:
             "height": self.board_px,
         }
         try:
-            with mss.mss() as sct:
-                raw = sct.grab(region)
+            # Reuse mss.mss() context to avoid expensive handle allocation every frame
+            if self._mss_context is None:
+                self._mss_context = mss.mss()
+            raw = self._mss_context.grab(region)
             img = np.array(raw)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
             return img
         except Exception as exc:
             log.error("Screen capture failed: %s", exc)
+            # Reset context on error so it can be recreated
+            self._mss_context = None
             return None
 
     def _detect_all(self, board_img: np.ndarray) -> list[dict]:
