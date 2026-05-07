@@ -133,6 +133,11 @@ class EngineWorker:
         self._configured_skill: Optional[int] = None
         self._configured_elo:   Optional[int] = None   # track profile ELO too
         self._game_token: object = object()
+        
+        # Debounce: track last FEN submitted to avoid duplicate analysis requests
+        self._last_submitted_fen: str = ""
+        # Track if engine is currently busy analysing
+        self._is_analysing: bool = False
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -151,6 +156,7 @@ class EngineWorker:
         from the profile and skill_level/humanise are ignored.
         
         Duplicate FEN requests are dropped to prevent redundant analysis cycles.
+        Requests while engine is busy are queued (debounced) rather than dropped.
         """
         if profile is not None:
             # Profile overrides manual settings
@@ -170,17 +176,11 @@ class EngineWorker:
                 profile=None,
             )
 
-        # Drop duplicate requests for same FEN (debounce at source)
-        try:
-            existing = self._q.get_nowait()
-            if existing is not None and existing.fen == fen:
-                # Same position — skip redundant request
-                self._q.put_nowait(existing)
-                return
-        except queue.Empty:
-            pass
+        # Debounce: skip if this is same FEN as last submitted AND engine is still analysing
+        if fen == self._last_submitted_fen and self._is_analysing:
+            return
         
-        # Drop stale pending request — always analyse the latest position
+        # Always update queue with latest request (replaces any pending stale request)
         try:
             self._q.put_nowait(req)
         except queue.Full:
@@ -253,6 +253,9 @@ class EngineWorker:
         # Only reset on explicit new game, not on crash recovery
         self._configured_skill = None
         self._configured_elo   = None
+        # Clear last submitted FEN so position can be re-analysed after crash
+        self._last_submitted_fen = ""
+        self._is_analysing = False
         return self._load_engine()
 
     def _configure_strength_legacy(self, skill_level: int) -> bool:
@@ -325,6 +328,10 @@ class EngineWorker:
         limit    = chess.engine.Limit(depth=req.depth)
         multipv  = max(1, profile.multipv)
 
+        # Mark engine as busy before analysis
+        self._is_analysing = True
+        self._last_submitted_fen = req.fen
+
         try:
             infos = self._engine.analyse(
                 board, limit,
@@ -335,10 +342,15 @@ class EngineWorker:
         except chess.engine.EngineTerminatedError:
             log.error("Engine died during analyse() — restarting")
             self._restart_engine()
+            self._is_analysing = False
             return None
         except Exception as exc:
             log.error("Engine analyse() error: %s", exc)
+            self._is_analysing = False
             return None
+        finally:
+            # Always clear analysing flag when done (success or failure)
+            self._is_analysing = False
 
         # Build candidate list from multipv results
         candidates: List[Tuple[str, Optional[int]]] = []
@@ -366,18 +378,43 @@ class EngineWorker:
 
         # Best-move ponder (from first PV line)
         ponder_uci: Optional[str] = None
+        ponder_score: Optional[int] = None
         first_pv = infos[0].get("pv") if infos else None
         if first_pv and len(first_pv) >= 2:
             ponder_uci = first_pv[1].uci()
+            # Compute eval after opponent's best response (ponder move)
+            # This gives us the score accounting for opponent's reply
+            try:
+                ponder_board = board.copy()
+                ponder_board.push(chess.Move.from_uci(ponder_uci))
+                # Analyse the position after our move + opponent's response
+                ponder_limit = chess.engine.Limit(depth=max(1, req.depth - 2))
+                ponder_info = self._engine.analyse(
+                    ponder_board, ponder_limit,
+                    multipv=1,
+                    info=chess.engine.INFO_SCORE,
+                    game=self._game_token,
+                )
+                if ponder_info and ponder_info[0].get("score"):
+                    ps = ponder_info[0]["score"].relative
+                    if ps.is_mate():
+                        ponder_score = 30_000 * (1 if ps.mate() > 0 else -1)
+                    else:
+                        ponder_score = ps.score()
+            except Exception as exc:
+                log.debug("Ponder analysis skipped: %s", exc)
+                ponder_score = None
 
         top_score = candidates[0][1]
+        # Use ponder_score if available (accounts for opponent's reply), otherwise use top_score
+        display_score = ponder_score if ponder_score is not None else top_score
         move_obj  = chess.Move.from_uci(chosen_uci)
         return MoveResult(
             uci=chosen_uci,
             from_sq=move_obj.from_square,
             to_sq=move_obj.to_square,
             fen=req.fen,
-            score=top_score,
+            score=display_score,
             ponder_uci=ponder_uci,
             is_human_error=is_error,
             all_candidates=candidates,
@@ -397,6 +434,11 @@ class EngineWorker:
                 return None
 
         limit = chess.engine.Limit(depth=req.depth)
+        
+        # Mark engine as busy before analysis
+        self._is_analysing = True
+        self._last_submitted_fen = req.fen
+        
         try:
             result = self._engine.play(
                 board, limit,
@@ -406,10 +448,15 @@ class EngineWorker:
         except chess.engine.EngineTerminatedError:
             log.error("Engine died during play() — restarting")
             self._restart_engine()
+            self._is_analysing = False
             return None
         except Exception as exc:
             log.error("Engine play() error: %s", exc)
+            self._is_analysing = False
             return None
+        finally:
+            # Always clear analysing flag when done (success or failure)
+            self._is_analysing = False
 
         if result.move is None:
             log.warning("Engine returned no move for FEN: %s", req.fen)
@@ -455,14 +502,18 @@ class EngineWorker:
             board = chess.Board(req.fen)
         except Exception as exc:
             log.error("Invalid FEN '%s': %s", req.fen, exc)
+            # Clear analysing flag on error so new requests can proceed
+            self._is_analysing = False
             return
 
         if board.is_game_over():
             log.debug("Game over — skipping analysis")
+            self._is_analysing = False
             return
 
         if not board.king(chess.WHITE) or not board.king(chess.BLACK):
             log.warning("Skipping FEN with missing king(s): %s", req.fen)
+            self._is_analysing = False
             return
 
         # Choose analysis path
