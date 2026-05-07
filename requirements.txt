@@ -1,0 +1,8 @@
+chess>=1.10.0
+stockfish>=3.28.0
+opencv-python>=4.8.0
+numpy>=1.26.0
+mss>=9.0.1
+Pillow>=10.4.0
+pywin32>=306
+ 
