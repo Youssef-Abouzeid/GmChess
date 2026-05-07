@@ -14,6 +14,7 @@ Changes from original:
 
 from __future__ import annotations
 
+import ctypes
 import logging
 import tkinter as tk
 from tkinter import ttk
@@ -57,6 +58,21 @@ def _set_clickthrough(hwnd: int, enable: bool) -> None:
         style &= ~win32con.WS_EX_TRANSPARENT
         style |= win32con.WS_EX_LAYERED
     win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, style)
+
+
+def _set_capture_exclusion(hwnd: int, enable: bool) -> None:
+    """Ask Windows not to include this overlay in screen-capture APIs."""
+    if not _WIN32_AVAILABLE:
+        return
+    # WDA_EXCLUDEFROMCAPTURE is available on modern Windows 10/11. If the OS
+    # does not support it, the call simply fails and the overlay still works.
+    affinity = 0x11 if enable else 0x00
+    try:
+        ok = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, affinity)
+        if not ok:
+            log.debug("SetWindowDisplayAffinity failed for hwnd=%s", hwnd)
+    except Exception as exc:
+        log.debug("SetWindowDisplayAffinity unavailable: %s", exc)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +139,8 @@ class ChessOverlay:
         self._skill_level    = config.DEFAULT_SKILL_LEVEL
         self._depth          = config.DEFAULT_DEPTH
         self._current_fen    = ""
+        self._pending_fen: Optional[str] = None
+        self._pending_fen_after_id: Optional[str] = None
         self._latest_analysis_request_id: Optional[int] = None
         self._player_color   = getattr(config, "PLAYER_COLOR", "w")
         if self._player_color not in ("w", "b"):
@@ -144,6 +162,7 @@ class ChessOverlay:
         self._build_window()
         self._build_ui()
         self._bind_hotkeys()
+        self._configure_capture_exclusion()
         self._start_workers()
         self._update_board_region()
         self.root.after(500, self._update_board_region)
@@ -724,6 +743,12 @@ class ChessOverlay:
 
     # ── Board region ──────────────────────────────────────────────────────────
 
+    def _cancel_pending_fen(self) -> None:
+        self._pending_fen = None
+        if self._pending_fen_after_id:
+            self.root.after_cancel(self._pending_fen_after_id)
+            self._pending_fen_after_id = None
+
     def _fen_turn(self, fen: str) -> str:
         try:
             return fen.split()[1]
@@ -775,6 +800,15 @@ class ChessOverlay:
             return self._hwnd
         except Exception:
             return None
+
+    def _configure_capture_exclusion(self) -> None:
+        self.root.update_idletasks()
+        hwnd = self._get_hwnd()
+        if hwnd:
+            _set_capture_exclusion(
+                hwnd,
+                getattr(config, "EXCLUDE_OVERLAY_FROM_CAPTURE", True),
+            )
 
     def _apply_clickthrough(self, enable: bool) -> None:
         if enable == self._clickthrough_applied:
@@ -914,26 +948,39 @@ class ChessOverlay:
     def _on_new_fen(self, fen: str) -> None:
         """Called from VisionLoop thread — marshal to UI thread."""
         def _ui_update(f=fen) -> None:
-            # Debounce on the UI thread; _current_fen is only touched there.
             if f == self._current_fen:
                 return
-
-            self._current_fen = f
-            piece_count = sum(1 for c in f.split()[0] if c.isalpha())
-            side        = "White" if "w" in f.split()[1] else "Black"
-            self._position_status = f"{piece_count} pieces, {side} to move"
-            self._clear_arrows()
-            if self._is_my_turn(f):
-                self._move_var.set("Best: analyzing...")
-            else:
-                self._move_var.set("Best: waiting for your turn")
-            self._ponder_var.set("")
-            self._eval_var.set("...")
-            self._update_eval_bar(None)
-            self._refresh_status_bar()
-            self._request_current_analysis()
+            if f == self._pending_fen:
+                return
+            self._pending_fen = f
+            if self._pending_fen_after_id:
+                self.root.after_cancel(self._pending_fen_after_id)
+            delay_ms = getattr(config, "FEN_STABILITY_MS", 300)
+            self._pending_fen_after_id = self.root.after(delay_ms, self._accept_pending_fen)
 
         self.root.after(0, _ui_update)
+
+    def _accept_pending_fen(self) -> None:
+        self._pending_fen_after_id = None
+        fen = self._pending_fen
+        self._pending_fen = None
+        if not fen or fen == self._current_fen:
+            return
+
+        self._current_fen = fen
+        piece_count = sum(1 for c in fen.split()[0] if c.isalpha())
+        side        = "White" if "w" in fen.split()[1] else "Black"
+        self._position_status = f"{piece_count} pieces, {side} to move"
+        self._clear_arrows()
+        if self._is_my_turn(fen):
+            self._move_var.set("Best: analyzing...")
+        else:
+            self._move_var.set("Best: waiting for your turn")
+        self._ponder_var.set("")
+        self._eval_var.set("...")
+        self._update_eval_bar(None)
+        self._refresh_status_bar()
+        self._request_current_analysis()
 
     def _on_engine_result(self, result: MoveResult) -> None:
         self.root.after(0, lambda r=result: self._render_fresh_move(r))
@@ -983,6 +1030,7 @@ class ChessOverlay:
         self._schedule_current_analysis()
 
     def _on_flip_change(self) -> None:
+        self._cancel_pending_fen()
         self._flipped = self._flip_var.get()
         self._vision.set_flipped(self._flipped)
         self._clear_arrows()
@@ -990,6 +1038,7 @@ class ChessOverlay:
         self._refresh_status_bar()
 
     def _toggle_active_color(self) -> None:
+        self._cancel_pending_fen()
         current = self._vision.toggle_active_color()
         label = "White to move" if current == "w" else "Black to move"
         self._side_var.set(label)
@@ -1005,6 +1054,7 @@ class ChessOverlay:
             self._request_current_analysis()
 
     def _toggle_player_color(self) -> None:
+        self._cancel_pending_fen()
         self._player_color = "b" if self._player_color == "w" else "w"
         self._player_color_var.set(self._player_color_label())
         self._clear_arrows()

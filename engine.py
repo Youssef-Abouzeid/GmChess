@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import queue
 import random
+import hashlib
 import threading
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
@@ -79,18 +80,23 @@ class HumaniserConfig:
 
 
 def _pick_human_move_legacy(
-    board: chess.Board, best_uci: str, humaniser: HumaniserConfig
+    board: chess.Board,
+    best_uci: str,
+    humaniser: HumaniserConfig,
+    rng: Optional[random.Random] = None,
 ) -> str:
     """Legacy random-replacement error injection."""
+    rng = rng or random
     legal = list(board.legal_moves)
     if len(legal) <= 1:
         return best_uci
-    if humaniser.should_randomise():
-        return random.choice(legal).uci()
-    if humaniser.should_blunder():
+    if rng.random() < humaniser.randomness:
+        return rng.choice(legal).uci()
+    blunder_rate = humaniser.blunder_rate + humaniser.natural_error_prob()
+    if rng.random() < blunder_rate:
         non_best = [m for m in legal if m.uci() != best_uci]
         if non_best:
-            return random.choice(non_best).uci()
+            return rng.choice(non_best).uci()
     return best_uci
 
 
@@ -173,6 +179,14 @@ class EngineWorker:
             request_id = self._next_request_id
             self._next_request_id += 1
             return request_id
+
+    @staticmethod
+    def _stable_rng(req: AnalysisRequest, candidates: List[Tuple[str, Optional[int]]]) -> random.Random:
+        profile_id = req.profile.id if req.profile else "manual"
+        candidate_key = "|".join(uci for uci, _ in candidates)
+        payload = f"{req.fen}|{profile_id}|{req.skill_level}|{req.depth}|{req.humanise}|{candidate_key}"
+        digest = hashlib.sha256(payload.encode("utf-8")).digest()
+        return random.Random(int.from_bytes(digest[:8], "big"))
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -448,7 +462,8 @@ class EngineWorker:
 
         # Profile-based move selection
         try:
-            chosen_uci, is_error = select_move_for_profile(board, candidates, profile)
+            rng = self._stable_rng(req, candidates) if getattr(config, "STABLE_PROFILE_CHOICES", True) else None
+            chosen_uci, is_error = select_move_for_profile(board, candidates, profile, rng=rng)
         except Exception as exc:
             log.error("Profile move selection failed: %s", exc)
             return None
@@ -524,7 +539,8 @@ class EngineWorker:
         is_error   = False
         chosen_uci = best_uci
         if req.humanise:
-            chosen_uci = _pick_human_move_legacy(board, best_uci, self.humaniser)
+            rng = self._stable_rng(req, [(best_uci, score_cp)]) if getattr(config, "STABLE_PROFILE_CHOICES", True) else None
+            chosen_uci = _pick_human_move_legacy(board, best_uci, self.humaniser, rng=rng)
             is_error   = chosen_uci != best_uci
 
         try:

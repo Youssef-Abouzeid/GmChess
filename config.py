@@ -17,8 +17,12 @@ CALIBRATION_FILE = "calibration.json"
 SCALES               = [0.9, 1.0, 1.1]
 CONFIDENCE_THRESHOLD = 0.72
 IOU_THRESHOLD        = 0.2
-VISION_FPS           = 8         # captures per second
+VISION_FPS           = 15        # captures per second
 VISION_INTERVAL_MS   = 1000 // VISION_FPS
+FEN_STABILITY_MS     = 25        # tiny UI debounce after vision accepts a position
+VISION_FEN_WINDOW    = 2         # raw FEN frames used for majority smoothing
+VISION_FEN_MIN_VOTES = 2         # votes required before vision emits a FEN
+VISION_REQUIRE_VALID_FEN = True  # drop impossible one-frame detections
 
 # ── Piece identifiers ────────────────────────────────────────────────────────
 PIECES = ["wP","wN","wB","wR","wQ","wK",
@@ -56,8 +60,10 @@ ARROWHEAD_LENGTH   = 22
 ARROWHEAD_WIDTH    = 14
 ARROW_ALPHA        = 0.82
 PLAYER_COLOR       = "w"         # arrows only render when this side is to move
+STABLE_PROFILE_CHOICES = True    # same position/profile gives the same suggested move
 BOARD_CLICKTHROUGH_DEFAULT = True
 CLICKTHROUGH_POLL_MS      = 100
+EXCLUDE_OVERLAY_FROM_CAPTURE = True
 
 # ── UI colours ───────────────────────────────────────────────────────────────
 BG_TOPBAR   = "#1a1a2e"

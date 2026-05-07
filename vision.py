@@ -27,6 +27,7 @@ from __future__ import annotations
 import threading
 import time
 import logging
+from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Optional
@@ -213,7 +214,9 @@ def detections_to_fen(
         board = chess.Board(fen)
         if not board.is_valid():
             log.debug("FEN failed is_valid() (unusual position): %s", fen)
-            # Still return — engine will validate and skip if needed
+            if getattr(config, "VISION_REQUIRE_VALID_FEN", True):
+                return None
+            # Compatibility escape hatch: allow unusual FENs only when configured.
     except Exception as exc:
         log.error("FEN parse error: %s  fen=%s", exc, fen)
         return None
@@ -340,6 +343,9 @@ class VisionLoop:
         self.board_px: int       = config.BOARD_SIZE
 
         self._last_fen:    str  = ""
+        self._fen_window: deque[str] = deque(
+            maxlen=getattr(config, "VISION_FEN_WINDOW", 5)
+        )
         self._active_color: str = "w"
         self._flipped:     bool = False
         self._enabled:     bool = True
@@ -360,6 +366,7 @@ class VisionLoop:
         with self._state_lock:
             self._active_color = color
             self._last_fen = ""   # force re-analysis with new side-to-move
+            self._fen_window.clear()
 
     def get_active_color(self) -> str:
         with self._state_lock:
@@ -369,12 +376,14 @@ class VisionLoop:
         with self._state_lock:
             self._active_color = "b" if self._active_color == "w" else "w"
             self._last_fen = ""
+            self._fen_window.clear()
             return self._active_color
 
     def set_flipped(self, flipped: bool) -> None:
         with self._state_lock:
             self._flipped = flipped
             self._last_fen = ""
+            self._fen_window.clear()
 
     def set_enabled(self, enabled: bool) -> None:
         with self._state_lock:
@@ -473,6 +482,17 @@ class VisionLoop:
             all_dets.extend(dets)
         return nms(all_dets)
 
+    def _stable_fen(self, raw_fen: str) -> Optional[str]:
+        """Return a majority-stable FEN, or None while raw frames are noisy."""
+        with self._state_lock:
+            self._fen_window.append(raw_fen)
+            min_votes = max(1, getattr(config, "VISION_FEN_MIN_VOTES", 3))
+            candidate, votes = Counter(self._fen_window).most_common(1)[0]
+        if votes < min_votes:
+            log.debug("FEN pending stability (%d/%d): %s", votes, min_votes, raw_fen)
+            return None
+        return candidate
+
     def _run(self) -> None:
         interval = config.VISION_INTERVAL_MS / 1000.0
 
@@ -508,15 +528,22 @@ class VisionLoop:
                     )
 
                     if fen:
+                        stable_fen = self._stable_fen(fen)
+                        if stable_fen is None:
+                            elapsed = time.monotonic() - t0
+                            sleep_t  = max(0.0, interval - elapsed)
+                            self._stop_evt.wait(timeout=sleep_t)
+                            continue
+
                         self._emit_status("Board detected")
                         with self._state_lock:
-                            is_new = fen != self._last_fen
+                            is_new = stable_fen != self._last_fen
                             if is_new:
-                                self._last_fen = fen
+                                self._last_fen = stable_fen
                         if is_new:
-                            log.debug("New FEN: %s", fen)
+                            log.debug("New FEN: %s", stable_fen)
                             try:
-                                self.fen_callback(fen)
+                                self.fen_callback(stable_fen)
                             except Exception as exc:
                                 log.error("fen_callback raised: %s", exc)
                     else:

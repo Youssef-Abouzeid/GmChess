@@ -196,6 +196,7 @@ def select_move_for_profile(
     board: chess.Board,
     candidates: list[tuple[str, Optional[int]]],   # (uci, score_cp) sorted best-first
     profile: PlayerProfile,
+    rng: Optional[random.Random] = None,
 ) -> tuple[str, bool]:
     """
     Choose a move from `candidates` according to `profile`.
@@ -205,6 +206,7 @@ def select_move_for_profile(
     """
     if not candidates:
         raise ValueError("candidates must be non-empty")
+    rng = rng or random
 
     legal_moves = list(board.legal_moves)
     legal_uci = [m.uci() for m in legal_moves]
@@ -214,7 +216,7 @@ def select_move_for_profile(
 
     candidates = [c for c in candidates if c[0] in legal_uci_set]
     if not candidates:
-        chosen = random.choice(legal_uci)
+        chosen = rng.choice(legal_uci)
         log.warning("Profile %s: no legal engine candidates; using %s", profile.id, chosen)
         return chosen, True
 
@@ -234,19 +236,19 @@ def select_move_for_profile(
 
     # ── Outright blunder: random legal move ───────────────────────────────────
     effective_blunder = profile.errors.blunder_rate * amp
-    if random.random() < effective_blunder:
-        chosen = random.choice(legal_uci)
+    if rng.random() < effective_blunder:
+        chosen = rng.choice(legal_uci)
         log.debug("Profile %s: blunder → %s (random legal)", profile.id, chosen)
         return chosen, chosen != best_uci
 
     # ── Tactical miss: skip the best move, pick from the rest ─────────────────
     effective_miss = profile.errors.miss_tactic_rate * amp
-    if len(candidates) >= 2 and random.random() < effective_miss:
+    if len(candidates) >= 2 and rng.random() < effective_miss:
         pool = candidates[1:]
         scores = [c[1] if c[1] is not None else best_cp - 200 for c in pool]
         min_s  = min(scores)
         weights = [math.exp((s - min_s) / 60.0) for s in scores]
-        chosen = random.choices([c[0] for c in pool], weights=weights)[0]
+        chosen = rng.choices([c[0] for c in pool], weights=weights)[0]
         log.debug("Profile %s: missed tactic → %s", profile.id, chosen)
         return chosen, True
 
@@ -282,7 +284,7 @@ def select_move_for_profile(
         return best_uci, False
 
     probs  = [w / total for w in weights]
-    chosen = random.choices([c[0] for c in candidates], weights=probs)[0]
+    chosen = rng.choices([c[0] for c in candidates], weights=probs)[0]
 
     is_error = chosen != best_uci
     if is_error:
