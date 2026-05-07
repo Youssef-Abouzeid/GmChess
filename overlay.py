@@ -750,6 +750,10 @@ class ChessOverlay:
 
     def _on_new_fen(self, fen: str) -> None:
         """Called from VisionLoop thread — marshal to UI thread."""
+        # Debounce: ignore if same FEN as last analysis request
+        if fen == self._current_fen:
+            return
+        
         self._current_fen = fen
         piece_count = sum(1 for c in fen.split()[0] if c.isalpha())
         side        = "White" if "w" in fen.split()[1] else "Black"

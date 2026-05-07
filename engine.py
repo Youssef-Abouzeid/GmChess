@@ -149,6 +149,8 @@ class EngineWorker:
 
         If `profile` is supplied, all strength/style/error parameters come
         from the profile and skill_level/humanise are ignored.
+        
+        Duplicate FEN requests are dropped to prevent redundant analysis cycles.
         """
         if profile is not None:
             # Profile overrides manual settings
@@ -168,6 +170,16 @@ class EngineWorker:
                 profile=None,
             )
 
+        # Drop duplicate requests for same FEN (debounce at source)
+        try:
+            existing = self._q.get_nowait()
+            if existing is not None and existing.fen == fen:
+                # Same position — skip redundant request
+                self._q.put_nowait(existing)
+                return
+        except queue.Empty:
+            pass
+        
         # Drop stale pending request — always analyse the latest position
         try:
             self._q.put_nowait(req)
@@ -213,7 +225,10 @@ class EngineWorker:
             )
             self._configured_skill = None
             self._configured_elo   = None
-            self._game_token       = object()
+            # Only create new game token on fresh load, not restart
+            # This preserves hash/NNUE state across crash recovery
+            if not hasattr(self, '_game_token') or self._game_token is None:
+                self._game_token = object()
             return True
         except FileNotFoundError:
             log.error(
@@ -234,9 +249,10 @@ class EngineWorker:
             except Exception:
                 pass
             self._engine = None
+        # Preserve _game_token across restarts to avoid NNUE reload crash loop
+        # Only reset on explicit new game, not on crash recovery
         self._configured_skill = None
         self._configured_elo   = None
-        self._game_token       = object()
         return self._load_engine()
 
     def _configure_strength_legacy(self, skill_level: int) -> bool:
