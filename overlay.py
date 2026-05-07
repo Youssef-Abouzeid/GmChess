@@ -22,7 +22,7 @@ from typing import Optional
 import chess
 
 import config
-from engine import EngineWorker, MoveResult
+from engine import EngineWorker, MATE_SCORE, MoveResult
 from profiles import (
     ALL_PROFILES,
     PROFILE_CATEGORIES,
@@ -63,7 +63,7 @@ def _set_clickthrough(hwnd: int, enable: bool) -> None:
 # Arrow drawing helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _sq_center(sq: chess.Square, flipped: bool = False) -> tuple[int, int]:
+def _sq_center(sq: chess.Square, flipped: bool = False) -> tuple[float, float]:
     file_idx = chess.square_file(sq)
     rank_idx = chess.square_rank(sq)
     if flipped:
@@ -72,9 +72,10 @@ def _sq_center(sq: chess.Square, flipped: bool = False) -> tuple[int, int]:
     else:
         col = file_idx
         row = 7 - rank_idx
-    half = config.SQUARE_SIZE // 2
-    x = col * config.SQUARE_SIZE + half
-    y = config.BOARD_CANVAS_Y + row * config.SQUARE_SIZE + half
+    square_size = config.BOARD_SIZE / 8.0
+    half = square_size / 2.0
+    x = col * square_size + half
+    y = row * square_size + half
     return x, y
 
 
@@ -115,18 +116,27 @@ class ChessOverlay:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root            = root
-        self._click_through  = False
+        self._click_through  = getattr(config, "BOARD_CLICKTHROUGH_DEFAULT", True)
+        self._clickthrough_applied = False
         self._flipped        = False
         self._humanise       = False
         self._skill_level    = config.DEFAULT_SKILL_LEVEL
         self._depth          = config.DEFAULT_DEPTH
         self._current_fen    = ""
+        self._latest_analysis_request_id: Optional[int] = None
+        self._player_color   = getattr(config, "PLAYER_COLOR", "w")
+        if self._player_color not in ("w", "b"):
+            self._player_color = "w"
+        self._engine_status  = "Engine starting"
+        self._vision_status  = "Vision starting"
+        self._position_status = "Waiting for board"
         self._hwnd: Optional[int] = None
         self._last_board_xy: tuple[int, int] = (-1, -1)
 
         self._drag_x = 0
         self._drag_y = 0
         self._drag_after_id: Optional[str] = None
+        self._analysis_after_id: Optional[str] = None
 
         # Active profile (None → legacy manual-slider path)
         self._active_profile: Optional[PlayerProfile] = default_profile()
@@ -137,17 +147,18 @@ class ChessOverlay:
         self._start_workers()
         self._update_board_region()
         self.root.after(500, self._update_board_region)
+        self.root.after(getattr(config, "CLICKTHROUGH_POLL_MS", 100), self._update_clickthrough_hit_test)
 
     # ── Window setup ──────────────────────────────────────────────────────────
 
     def _load_calibration(self) -> tuple[int, int]:
         import json
         from pathlib import Path
-        cal_file = Path("calibration.json")
+        cal_file = Path(__file__).resolve().with_name(config.CALIBRATION_FILE)
         if cal_file.exists():
             try:
                 data = json.loads(cal_file.read_text())
-                return data.get("x", 100), data.get("y", 100)
+                return int(data.get("x", 100)), int(data.get("y", 100))
             except Exception:
                 pass
         return 100, 100
@@ -257,10 +268,20 @@ class ChessOverlay:
         sidebar.bind("<Configure>", _on_frame_configure)
         canvas_sb.bind("<Configure>", _on_canvas_configure)
 
-        # Mouse-wheel scrolling
+        # Mouse-wheel scrolling only while the pointer is over the sidebar.
         def _on_mousewheel(event):
             canvas_sb.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas_sb.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _bind_mousewheel(_):
+            canvas_sb.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(_):
+            canvas_sb.unbind_all("<MouseWheel>")
+
+        canvas_sb.bind("<Enter>", _bind_mousewheel)
+        canvas_sb.bind("<Leave>", _unbind_mousewheel)
+        sidebar.bind("<Enter>", _bind_mousewheel)
+        sidebar.bind("<Leave>", _unbind_mousewheel)
 
         # Build sections
         self._build_profile_section(sidebar)
@@ -372,18 +393,20 @@ class ChessOverlay:
         self._refresh_profile_card(profile)
 
         # Sync manual sliders so they reflect the profile
+        profile_depth = profile.depth
+        depth_cap = getattr(config, "PROFILE_DEPTH_CAP", None)
+        if depth_cap is not None:
+            profile_depth = min(profile_depth, int(depth_cap))
         self._skill_var.set(min(20, profile.stockfish_elo // 125))
-        self._depth_var.set(profile.depth)
+        self._depth_var.set(profile_depth)
         self._blunder_var.set(profile.errors.blunder_rate)
         self._random_var.set(profile.errors.miss_tactic_rate)
 
         log.info("Profile selected: %s", profile.name)
+        self._refresh_status_bar()
 
         # Re-analyse current position with new profile
-        if self._current_fen:
-            self._engine.request_analysis(
-                self._current_fen, profile=profile,
-            )
+        self._request_current_analysis()
 
     def _refresh_profile_card(self, profile: Optional[PlayerProfile]) -> None:
         if profile is None:
@@ -392,7 +415,11 @@ class ChessOverlay:
             self._profile_desc_var.set("Use the sliders below to configure strength.")
             return
         self._profile_title_var.set(f"{profile.emoji}  {profile.name}")
-        self._profile_rating_var.set(f"~{profile.rating} ELO  |  depth {profile.depth}")
+        profile_depth = profile.depth
+        depth_cap = getattr(config, "PROFILE_DEPTH_CAP", None)
+        if depth_cap is not None:
+            profile_depth = min(profile_depth, int(depth_cap))
+        self._profile_rating_var.set(f"~{profile.rating} ELO  |  depth {profile_depth}")
         self._profile_desc_var.set(profile.description)
 
     # ── Manual override section ───────────────────────────────────────────────
@@ -500,6 +527,8 @@ class ChessOverlay:
         self._active_profile = None
         self._profile_combo_var.set("")
         self._refresh_profile_card(None)
+        self._refresh_status_bar()
+        self._request_current_analysis()
         log.info("Switched to manual mode")
 
     # ── Board orientation section ─────────────────────────────────────────────
@@ -523,6 +552,22 @@ class ChessOverlay:
             command=self._toggle_active_color,
         ).pack(padx=10, pady=4, fill=tk.X)
 
+        self._player_color_var = tk.StringVar(value=self._player_color_label())
+        tk.Button(
+            parent, textvariable=self._player_color_var,
+            bg=config.BTN_BG, fg=config.TEXT_MAIN,
+            relief=tk.FLAT, font=("Segoe UI", 9),
+            command=self._toggle_player_color,
+        ).pack(padx=10, pady=(0, 4), fill=tk.X)
+
+        tk.Button(
+            parent, text="Refresh analysis",
+            bg=config.BTN_BG, fg=config.TEXT_MAIN,
+            relief=tk.FLAT, font=("Segoe UI", 8),
+            command=self._request_current_analysis,
+            activebackground=config.BTN_HOVER, activeforeground="white",
+        ).pack(padx=10, pady=(0, 4), fill=tk.X)
+
         self._grid_var = tk.BooleanVar(value=False)
         tk.Checkbutton(
             parent, text="Show grid",
@@ -534,7 +579,8 @@ class ChessOverlay:
 
         # Click-through
         self._sidebar_label(parent, "INTERACTION", pady=(8, 2))
-        self._ct_btn_text = tk.StringVar(value="🖱  Click-Through OFF")
+        click_label = "🖱  Board Click-Through ON" if self._click_through else "🖱  Board Click-Through OFF"
+        self._ct_btn_text = tk.StringVar(value=click_label)
         tk.Button(
             parent, textvariable=self._ct_btn_text,
             bg=config.BTN_BG, fg=config.TEXT_MAIN,
@@ -588,15 +634,15 @@ class ChessOverlay:
 
     def _draw_grid(self) -> None:
         self._canvas.delete("grid")
-        sq = config.SQUARE_SIZE
+        sq = config.BOARD_SIZE / 8.0
         for i in range(9):
             x = i * sq
             self._canvas.create_line(
-                x, config.BOARD_CANVAS_Y,
-                x, config.BOARD_CANVAS_Y + config.BOARD_SIZE,
+                x, 0,
+                x, config.BOARD_SIZE,
                 fill="#ffffff", width=1, tags="grid",
             )
-            y = config.BOARD_CANVAS_Y + i * sq
+            y = i * sq
             self._canvas.create_line(
                 0, y, config.BOARD_SIZE, y,
                 fill="#ffffff", width=1, tags="grid",
@@ -605,17 +651,91 @@ class ChessOverlay:
     # ── Workers ───────────────────────────────────────────────────────────────
 
     def _start_workers(self) -> None:
-        self._engine = EngineWorker(result_callback=self._on_engine_result)
+        self._engine = EngineWorker(
+            result_callback=self._on_engine_result,
+            status_callback=self._on_engine_status,
+        )
         self._engine.start()
 
-        self._vision = VisionLoop(fen_callback=self._on_new_fen)
+        self._vision = VisionLoop(
+            fen_callback=self._on_new_fen,
+            status_callback=self._on_vision_status,
+        )
         self._vision.start()
 
         log.info("Workers started")
-        pname = self._active_profile.name if self._active_profile else "Manual"
-        self._status_var.set(f"✅ Engine ready — profile: {pname}")
+        self._refresh_status_bar()
+
+    def _refresh_status_bar(self) -> None:
+        profile = self._active_profile.name if self._active_profile else "Manual"
+        prefix = "Board click-through ON | " if self._click_through else ""
+        self._status_var.set(
+            f"{prefix}{self._engine_status} | {self._vision_status} | "
+            f"{self._position_status} | {profile}"
+        )
+
+    def _on_engine_status(self, message: str) -> None:
+        self.root.after(0, lambda m=message: self._set_engine_status(m))
+
+    def _set_engine_status(self, message: str) -> None:
+        self._engine_status = message
+        self._refresh_status_bar()
+
+    def _on_vision_status(self, message: str) -> None:
+        self.root.after(0, lambda m=message: self._set_vision_status(m))
+
+    def _set_vision_status(self, message: str) -> None:
+        self._vision_status = message
+        self._refresh_status_bar()
+
+    def _request_current_analysis(self) -> None:
+        if not self._current_fen:
+            return
+        if not self._is_my_turn(self._current_fen):
+            self._latest_analysis_request_id = None
+            self._clear_arrows()
+            self._move_var.set("Best: waiting for your turn")
+            self._ponder_var.set("")
+            self._eval_var.set("...")
+            self._update_eval_bar(None)
+            return
+        if self._active_profile is not None:
+            request_id = self._engine.request_analysis(self._current_fen, profile=self._active_profile)
+        else:
+            request_id = self._engine.request_analysis(
+                self._current_fen,
+                skill_level=self._skill_level,
+                depth=self._depth,
+                humanise=self._humanise,
+            )
+        if request_id is not None:
+            self._latest_analysis_request_id = request_id
+
+    def _schedule_current_analysis(self, delay_ms: int = 250) -> None:
+        if self._active_profile is not None or not self._current_fen:
+            return
+        if self._analysis_after_id:
+            self.root.after_cancel(self._analysis_after_id)
+        self._analysis_after_id = self.root.after(delay_ms, self._run_scheduled_analysis)
+
+    def _run_scheduled_analysis(self) -> None:
+        self._analysis_after_id = None
+        self._request_current_analysis()
 
     # ── Board region ──────────────────────────────────────────────────────────
+
+    def _fen_turn(self, fen: str) -> str:
+        try:
+            return fen.split()[1]
+        except Exception:
+            return ""
+
+    def _is_my_turn(self, fen: str) -> bool:
+        return self._fen_turn(fen) == self._player_color
+
+    def _player_color_label(self) -> str:
+        side = "White" if self._player_color == "w" else "Black"
+        return f"My arrows: {side}"
 
     def _update_board_region(self) -> None:
         self.root.update_idletasks()
@@ -656,20 +776,54 @@ class ChessOverlay:
         except Exception:
             return None
 
-    def _toggle_clickthrough(self) -> None:
-        self._click_through = not self._click_through
+    def _apply_clickthrough(self, enable: bool) -> None:
+        if enable == self._clickthrough_applied:
+            return
         hwnd = self._get_hwnd()
         if hwnd:
-            _set_clickthrough(hwnd, self._click_through)
+            _set_clickthrough(hwnd, enable)
+            self._clickthrough_applied = enable
+
+    def _cursor_over_board(self) -> bool:
+        if not _WIN32_AVAILABLE:
+            return False
+        try:
+            cursor_x, cursor_y = win32gui.GetCursorPos()
+            board_x = self.root.winfo_rootx() + config.BOARD_CANVAS_X
+            board_y = self.root.winfo_rooty() + config.BOARD_CANVAS_Y
+        except Exception:
+            return False
+        return (
+            board_x <= cursor_x < board_x + config.BOARD_SIZE
+            and board_y <= cursor_y < board_y + config.BOARD_SIZE
+        )
+
+    def _update_clickthrough_hit_test(self) -> None:
+        should_passthrough = self._click_through and self._cursor_over_board()
+        self._apply_clickthrough(should_passthrough)
+        try:
+            self.root.after(
+                getattr(config, "CLICKTHROUGH_POLL_MS", 100),
+                self._update_clickthrough_hit_test,
+            )
+        except tk.TclError:
+            pass
+
+    def _toggle_clickthrough(self) -> None:
+        self._click_through = not self._click_through
+        if self._click_through:
+            self._ct_btn_text.set("Board Click-Through ON")
+        else:
+            self._ct_btn_text.set("Board Click-Through OFF")
+            self._apply_clickthrough(False)
+        self._apply_clickthrough(self._click_through and self._cursor_over_board())
+        self._refresh_status_bar()
+        return
         if self._click_through:
             self._ct_btn_text.set("🖱  Click-Through ON")
-            self._status_var.set("🔵 Click-through active — Ctrl+T to disable")
-            self._vision.set_enabled(False)
         else:
             self._ct_btn_text.set("🖱  Click-Through OFF")
-            pname = self._active_profile.name if self._active_profile else "Manual"
-            self._status_var.set(f"✅ Engine ready — profile: {pname}")
-            self._vision.set_enabled(True)
+        self._refresh_status_bar()
 
     # ── Arrow rendering ───────────────────────────────────────────────────────
 
@@ -693,37 +847,46 @@ class ChessOverlay:
     def _render_move(self, result: MoveResult) -> None:
         self._clear_arrows()
 
-        # Primary arrow
-        _draw_arrow(
-            self._canvas,
-            result.from_sq, result.to_sq,
-            color=config.ARROW_COLOR if not result.is_human_error else "#ff6b35",
-            flipped=self._flipped,
-            tag="arrow",
-        )
+        arrow_count = max(1, getattr(config, "ARROW_CANDIDATE_COUNT", 3))
+        candidate_uci = [result.uci]
+        for uci, _ in result.all_candidates:
+            if uci not in candidate_uci:
+                candidate_uci.append(uci)
+            if len(candidate_uci) >= arrow_count:
+                break
 
-        # Ponder arrow
-        if result.ponder_uci:
+        colors = [
+            config.ARROW_COLOR,
+            getattr(config, "SECOND_ARROW_COLOR", "#ffd54f"),
+            getattr(config, "THIRD_ARROW_COLOR", "#a0522d"),
+        ]
+        widths = [
+            config.ARROW_WIDTH,
+            max(4, config.ARROW_WIDTH - 2),
+            max(3, config.ARROW_WIDTH - 3),
+        ]
+
+        for idx, uci in enumerate(candidate_uci[:arrow_count]):
             try:
-                pm = chess.Move.from_uci(result.ponder_uci)
-                _draw_arrow(
-                    self._canvas,
-                    pm.from_square, pm.to_square,
-                    color="#ff9800",
-                    width=max(4, config.ARROW_WIDTH - 3),
-                    flipped=self._flipped,
-                    tag="ponder_arrow",
-                )
-                self._ponder_var.set(f"Ponder: {result.ponder_uci}")
-            except Exception:
-                self._ponder_var.set("")
-        else:
-            self._ponder_var.set("")
+                move = chess.Move.from_uci(uci)
+            except ValueError:
+                continue
+            color = colors[min(idx, len(colors) - 1)]
+            width = widths[min(idx, len(widths) - 1)]
+            _draw_arrow(
+                self._canvas,
+                move.from_square, move.to_square,
+                color=color,
+                width=width,
+                flipped=self._flipped,
+                tag="arrow",
+            )
+        self._ponder_var.set("")
 
         # Eval label
         if result.score is not None:
-            if abs(result.score) >= 29000:
-                mate_in = abs(result.score) - 29000
+            if abs(result.score) >= MATE_SCORE - 1000:
+                mate_in = MATE_SCORE - abs(result.score)
                 label   = f"M{mate_in}" if result.score > 0 else f"-M{mate_in}"
             else:
                 label = f"{result.score / 100:+.2f}"
@@ -750,70 +913,103 @@ class ChessOverlay:
 
     def _on_new_fen(self, fen: str) -> None:
         """Called from VisionLoop thread — marshal to UI thread."""
-        # Debounce: ignore if same FEN as last analysis request
-        if fen == self._current_fen:
-            return
-        
-        self._current_fen = fen
-        piece_count = sum(1 for c in fen.split()[0] if c.isalpha())
-        side        = "White" if "w" in fen.split()[1] else "Black"
+        def _ui_update(f=fen) -> None:
+            # Debounce on the UI thread; _current_fen is only touched there.
+            if f == self._current_fen:
+                return
 
-        def _ui_update(f=fen, pc=piece_count, sd=side) -> None:
-            self._status_var.set(f"♟ {pc} pieces · {sd} to move")
-            # Profile path takes priority; fall back to legacy manual sliders
-            if self._active_profile is not None:
-                self._engine.request_analysis(f, profile=self._active_profile)
+            self._current_fen = f
+            piece_count = sum(1 for c in f.split()[0] if c.isalpha())
+            side        = "White" if "w" in f.split()[1] else "Black"
+            self._position_status = f"{piece_count} pieces, {side} to move"
+            self._clear_arrows()
+            if self._is_my_turn(f):
+                self._move_var.set("Best: analyzing...")
             else:
-                self._engine.request_analysis(
-                    f,
-                    skill_level=self._skill_level,
-                    depth=self._depth,
-                    humanise=self._humanise,
-                )
+                self._move_var.set("Best: waiting for your turn")
+            self._ponder_var.set("")
+            self._eval_var.set("...")
+            self._update_eval_bar(None)
+            self._refresh_status_bar()
+            self._request_current_analysis()
 
         self.root.after(0, _ui_update)
 
     def _on_engine_result(self, result: MoveResult) -> None:
-        self.root.after(0, lambda r=result: self._render_move(r))
+        self.root.after(0, lambda r=result: self._render_fresh_move(r))
+
+    def _render_fresh_move(self, result: MoveResult) -> None:
+        if result.fen != self._current_fen:
+            log.debug("Ignoring stale engine result for FEN: %s", result.fen)
+            return
+        if not self._is_my_turn(result.fen):
+            self._clear_arrows()
+            self._move_var.set("Best: waiting for your turn")
+            self._ponder_var.set("")
+            return
+        if (
+            self._latest_analysis_request_id is not None
+            and result.request_id != self._latest_analysis_request_id
+        ):
+            log.debug(
+                "Ignoring stale engine result request %s; latest is %s",
+                result.request_id,
+                self._latest_analysis_request_id,
+            )
+            return
+        self._render_move(result)
 
     # ── Settings callbacks ────────────────────────────────────────────────────
 
     def _on_skill_change(self, _=None) -> None:
         self._skill_level = self._skill_var.get()
         self._engine.humaniser.skill = self._skill_level
+        self._schedule_current_analysis()
 
     def _on_depth_change(self, _=None) -> None:
         self._depth = self._depth_var.get()
+        self._schedule_current_analysis()
 
     def _on_humanise_change(self) -> None:
         self._humanise = self._humanise_var.get()
+        self._request_current_analysis()
 
     def _on_blunder_change(self, _=None) -> None:
         self._engine.humaniser.blunder_rate = self._blunder_var.get()
+        self._schedule_current_analysis()
 
     def _on_random_change(self, _=None) -> None:
         self._engine.humaniser.randomness = self._random_var.get()
+        self._schedule_current_analysis()
 
     def _on_flip_change(self) -> None:
         self._flipped = self._flip_var.get()
         self._vision.set_flipped(self._flipped)
         self._clear_arrows()
+        self._position_status = "Waiting for board"
+        self._refresh_status_bar()
 
     def _toggle_active_color(self) -> None:
-        current = "b" if self._vision._active_color == "w" else "w"
-        self._vision.set_active_color(current)
+        current = self._vision.toggle_active_color()
         label = "White to move" if current == "w" else "Black to move"
         self._side_var.set(label)
         if self._current_fen:
             parts    = self._current_fen.split()
             parts[1] = current
             new_fen  = " ".join(parts)
-            if self._active_profile:
-                self._engine.request_analysis(new_fen, profile=self._active_profile)
-            else:
-                self._engine.request_analysis(
-                    new_fen, self._skill_level, self._depth, self._humanise,
-                )
+            self._current_fen = new_fen
+            side = "White" if current == "w" else "Black"
+            piece_count = sum(1 for c in parts[0] if c.isalpha())
+            self._position_status = f"{piece_count} pieces, {side} to move"
+            self._refresh_status_bar()
+            self._request_current_analysis()
+
+    def _toggle_player_color(self) -> None:
+        self._player_color = "b" if self._player_color == "w" else "w"
+        self._player_color_var.set(self._player_color_label())
+        self._clear_arrows()
+        self._refresh_status_bar()
+        self._request_current_analysis()
 
     def _on_grid_toggle(self) -> None:
         if self._grid_var.get():

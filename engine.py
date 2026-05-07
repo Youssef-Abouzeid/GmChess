@@ -32,6 +32,23 @@ from profiles import PlayerProfile, select_move_for_profile
 
 log = logging.getLogger(__name__)
 
+MATE_SCORE = 30_000
+
+
+def _score_to_cp(score: Optional[chess.engine.PovScore]) -> Optional[int]:
+    """Encode mate scores near +/-30000 while preserving mate distance."""
+    if score is None:
+        return None
+
+    rel = score.relative
+    if rel.is_mate():
+        mate = rel.mate()
+        if mate is None:
+            return None
+        sign = 1 if mate >= 0 else -1
+        return sign * (MATE_SCORE - abs(mate))
+    return rel.score()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Legacy humaniser (kept for backward compatibility with manual sidebar sliders)
@@ -89,6 +106,7 @@ class AnalysisRequest:
     humanise:    bool
     # Profile-based path (None → legacy path)
     profile:     Optional[PlayerProfile] = None
+    request_id:  int = 0
 
 
 @dataclass
@@ -104,6 +122,7 @@ class MoveResult:
     all_candidates:  List[Tuple[str, Optional[int]]] = field(default_factory=list)
     # Profile that produced this result
     profile_name:    str           = ""
+    request_id:      int           = 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,8 +140,13 @@ class EngineWorker:
         worker.request_analysis(fen, skill_level=15, depth=12, humanise=True)
     """
 
-    def __init__(self, result_callback: Callable[[MoveResult], None]):
+    def __init__(
+        self,
+        result_callback: Callable[[MoveResult], None],
+        status_callback: Optional[Callable[[str], None]] = None,
+    ):
         self.result_callback = result_callback
+        self.status_callback = status_callback
         self._q: "queue.Queue[Optional[AnalysisRequest]]" = queue.Queue(maxsize=1)
         self._thread:  Optional[threading.Thread]       = None
         self._engine:  Optional[chess.engine.SimpleEngine] = None
@@ -132,9 +156,43 @@ class EngineWorker:
 
         self._configured_skill: Optional[int] = None
         self._configured_elo:   Optional[int] = None   # track profile ELO too
-        self._game_token: object = object()
+        self._game_token: Optional[object] = None
+        self._request_id_lock = threading.Lock()
+        self._next_request_id = 1
+
+    def _emit_status(self, message: str) -> None:
+        if self.status_callback is None:
+            return
+        try:
+            self.status_callback(message)
+        except Exception as exc:
+            log.error("status_callback raised: %s", exc)
+
+    def _allocate_request_id(self) -> int:
+        with self._request_id_lock:
+            request_id = self._next_request_id
+            self._next_request_id += 1
+            return request_id
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _request_key(req: AnalysisRequest) -> tuple:
+        """Return the fields that make a pending request truly duplicate."""
+        if req.profile is None:
+            return (req.fen, "manual", req.skill_level, req.depth, req.humanise)
+
+        profile = req.profile
+        return (
+            req.fen,
+            "profile",
+            profile.id,
+            profile.stockfish_elo,
+            req.depth,
+            profile.multipv,
+            profile.style,
+            profile.errors,
+        )
 
     def request_analysis(
         self,
@@ -143,21 +201,26 @@ class EngineWorker:
         depth:       int                  = config.DEFAULT_DEPTH,
         humanise:    bool                 = False,
         profile:     Optional[PlayerProfile] = None,
-    ) -> None:
+    ) -> Optional[int]:
         """
         Submit a new analysis request.
 
         If `profile` is supplied, all strength/style/error parameters come
         from the profile and skill_level/humanise are ignored.
         
-        Duplicate FEN requests are dropped to prevent redundant analysis cycles.
+        Duplicate equivalent requests are dropped to prevent redundant cycles.
         """
         if profile is not None:
+            depth_cap = getattr(config, "PROFILE_DEPTH_CAP", None)
+            profile_depth = profile.depth
+            if depth_cap is not None:
+                profile_depth = min(profile_depth, int(depth_cap))
+
             # Profile overrides manual settings
             req = AnalysisRequest(
                 fen=fen,
                 skill_level=20,           # full engine; ELO limit set separately
-                depth=profile.depth,
+                depth=profile_depth,
                 humanise=False,           # profile handles errors itself
                 profile=profile,
             )
@@ -170,27 +233,44 @@ class EngineWorker:
                 profile=None,
             )
 
-        # Drop duplicate requests for same FEN (debounce at source)
-        try:
-            existing = self._q.get_nowait()
-            if existing is not None and existing.fen == fen:
-                # Same position — skip redundant request
-                self._q.put_nowait(existing)
-                return
-        except queue.Empty:
-            pass
-        
-        # Drop stale pending request — always analyse the latest position
-        try:
-            self._q.put_nowait(req)
-        except queue.Full:
+        # Keep only the newest pending request. Equivalent requests are ignored,
+        # but a same-FEN request with different settings replaces stale work.
+        req_key = self._request_key(req)
+        while True:
             try:
-                self._q.get_nowait()
+                existing = self._q.get_nowait()
             except queue.Empty:
-                pass
-            self._q.put_nowait(req)
+                break
+
+            if existing is None:
+                self._q.put_nowait(None)
+                return None
+            if self._request_key(existing) == req_key:
+                self._q.put_nowait(existing)
+                return existing.request_id
+
+        req.request_id = self._allocate_request_id()
+
+        while True:
+            try:
+                self._q.put_nowait(req)
+                return req.request_id
+            except queue.Full:
+                try:
+                    existing = self._q.get_nowait()
+                except queue.Empty:
+                    continue
+                if existing is None:
+                    self._q.put_nowait(None)
+                    return None
+                if self._request_key(existing) == req_key:
+                    self._q.put_nowait(existing)
+                    return existing.request_id
 
     def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._emit_status("Engine starting")
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="EngineWorker"
         )
@@ -198,6 +278,11 @@ class EngineWorker:
         log.info("EngineWorker started")
 
     def stop(self) -> None:
+        while True:
+            try:
+                self._q.get_nowait()
+            except queue.Empty:
+                break
         self._q.put(None)
         if self._thread:
             self._thread.join(timeout=5)
@@ -206,6 +291,7 @@ class EngineWorker:
                 self._engine.quit()
             except Exception:
                 pass
+        self._emit_status("Engine stopped")
         log.info("EngineWorker stopped")
 
     # ── Internal ──────────────────────────────────────────────────────────────
@@ -225,10 +311,10 @@ class EngineWorker:
             )
             self._configured_skill = None
             self._configured_elo   = None
-            # Only create new game token on fresh load, not restart
-            # This preserves hash/NNUE state across crash recovery
-            if not hasattr(self, '_game_token') or self._game_token is None:
+            # Create the token on first successful load; restarts preserve it.
+            if self._game_token is None:
                 self._game_token = object()
+            self._emit_status("Engine ready")
             return True
         except FileNotFoundError:
             log.error(
@@ -236,13 +322,16 @@ class EngineWorker:
                 "Download from https://stockfishchess.org and update STOCKFISH_PATH",
                 config.STOCKFISH_PATH,
             )
+            self._emit_status("Stockfish not found")
             return False
         except Exception as exc:
             log.error("Failed to start Stockfish: %s", exc)
+            self._emit_status(f"Engine failed: {exc}")
             return False
 
     def _restart_engine(self) -> bool:
         log.warning("Attempting Stockfish restart…")
+        self._emit_status("Restarting engine")
         if self._engine is not None:
             try:
                 self._engine.quit()
@@ -323,7 +412,7 @@ class EngineWorker:
                 return None
 
         limit    = chess.engine.Limit(depth=req.depth)
-        multipv  = max(1, profile.multipv)
+        multipv  = max(1, profile.multipv, getattr(config, "ARROW_CANDIDATE_COUNT", 3))
 
         try:
             infos = self._engine.analyse(
@@ -342,46 +431,58 @@ class EngineWorker:
 
         # Build candidate list from multipv results
         candidates: List[Tuple[str, Optional[int]]] = []
+        pv_by_uci: dict[str, list[chess.Move]] = {}
         for info in infos:
             pv = info.get("pv")
             if not pv:
                 continue
             uci = pv[0].uci()
             sc  = info.get("score")
-            cp: Optional[int] = None
-            if sc:
-                rel = sc.relative
-                if rel.is_mate():
-                    cp = 30_000 * (1 if rel.mate() > 0 else -1)
-                else:
-                    cp = rel.score()
+            cp = _score_to_cp(sc)
             candidates.append((uci, cp))
+            pv_by_uci[uci] = pv
 
         if not candidates:
             log.warning("No candidates from multipv analyse for FEN: %s", req.fen)
             return None
 
         # Profile-based move selection
-        chosen_uci, is_error = select_move_for_profile(board, candidates, profile)
+        try:
+            chosen_uci, is_error = select_move_for_profile(board, candidates, profile)
+        except Exception as exc:
+            log.error("Profile move selection failed: %s", exc)
+            return None
 
-        # Best-move ponder (from first PV line)
+        try:
+            move_obj = chess.Move.from_uci(chosen_uci)
+        except ValueError:
+            log.warning("Profile selected malformed move %s for FEN: %s", chosen_uci, req.fen)
+            return None
+        if move_obj not in board.legal_moves:
+            log.warning("Profile selected illegal move %s for FEN: %s", chosen_uci, req.fen)
+            return None
+
+        # Ponder comes from the selected move's PV line, not necessarily PV #1.
         ponder_uci: Optional[str] = None
-        first_pv = infos[0].get("pv") if infos else None
-        if first_pv and len(first_pv) >= 2:
-            ponder_uci = first_pv[1].uci()
+        chosen_pv = pv_by_uci.get(chosen_uci)
+        if chosen_pv and len(chosen_pv) >= 2:
+            ponder_uci = chosen_pv[1].uci()
 
-        top_score = candidates[0][1]
-        move_obj  = chess.Move.from_uci(chosen_uci)
+        chosen_score = next(
+            (score for uci, score in candidates if uci == chosen_uci),
+            candidates[0][1],
+        )
         return MoveResult(
             uci=chosen_uci,
             from_sq=move_obj.from_square,
             to_sq=move_obj.to_square,
             fen=req.fen,
-            score=top_score,
+            score=chosen_score,
             ponder_uci=ponder_uci,
             is_human_error=is_error,
             all_candidates=candidates,
             profile_name=profile.name,
+            request_id=req.request_id,
         )
 
     # ── Legacy analysis (single-PV + humaniser) ───────────────────────────────
@@ -418,13 +519,7 @@ class EngineWorker:
         best_uci   = result.move.uci()
         ponder_uci = result.ponder.uci() if result.ponder else None
 
-        score_cp: Optional[int] = None
-        if result.info.get("score"):
-            sc = result.info["score"].relative
-            if sc.is_mate():
-                score_cp = 30_000 * (1 if sc.mate() > 0 else -1)
-            else:
-                score_cp = sc.score()
+        score_cp = _score_to_cp(result.info.get("score"))
 
         is_error   = False
         chosen_uci = best_uci
@@ -432,7 +527,14 @@ class EngineWorker:
             chosen_uci = _pick_human_move_legacy(board, best_uci, self.humaniser)
             is_error   = chosen_uci != best_uci
 
-        move_obj = chess.Move.from_uci(chosen_uci)
+        try:
+            move_obj = chess.Move.from_uci(chosen_uci)
+        except ValueError:
+            log.warning("Selected malformed move %s for FEN: %s", chosen_uci, req.fen)
+            return None
+        if move_obj not in board.legal_moves:
+            log.warning("Selected illegal move %s for FEN: %s", chosen_uci, req.fen)
+            return None
         return MoveResult(
             uci=chosen_uci,
             from_sq=move_obj.from_square,
@@ -443,6 +545,7 @@ class EngineWorker:
             is_human_error=is_error,
             all_candidates=[(best_uci, score_cp)],
             profile_name="Manual",
+            request_id=req.request_id,
         )
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
@@ -496,10 +599,13 @@ class EngineWorker:
             if req is None:
                 break
             try:
+                self._emit_status("Analyzing")
                 self._analyse(req)
+                self._emit_status("Engine ready")
             except Exception as exc:
                 log.error(
                     "Unhandled error in _analyse: %s — attempting engine restart",
                     exc,
                 )
                 self._restart_engine()
+        self._emit_status("Engine stopped")

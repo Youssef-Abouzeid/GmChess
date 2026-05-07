@@ -139,11 +139,10 @@ def _move_characteristics(move_uci: str, board: chess.Board, legal_count_cache: 
         "legal_count":     legal_count_cache,
     }
 
-    # Push to check for check/mate (always undo)
-    board.push(move)
-    features["gives_check"] = board.is_check()
-    features["is_checkmate"] = board.is_checkmate()
-    board.pop()
+    analysis_board = board.copy(stack=False)
+    analysis_board.push(move)
+    features["gives_check"] = analysis_board.is_check()
+    features["is_checkmate"] = analysis_board.is_checkmate()
 
     return features
 
@@ -207,6 +206,18 @@ def select_move_for_profile(
     if not candidates:
         raise ValueError("candidates must be non-empty")
 
+    legal_moves = list(board.legal_moves)
+    legal_uci = [m.uci() for m in legal_moves]
+    legal_uci_set = set(legal_uci)
+    if not legal_uci:
+        raise ValueError("board has no legal moves")
+
+    candidates = [c for c in candidates if c[0] in legal_uci_set]
+    if not candidates:
+        chosen = random.choice(legal_uci)
+        log.warning("Profile %s: no legal engine candidates; using %s", profile.id, chosen)
+        return chosen, True
+
     best_uci, best_raw = candidates[0]
 
     # Single option — nothing to decide.
@@ -217,15 +228,14 @@ def select_move_for_profile(
     piece_cnt = sum(1 for sq in chess.SQUARES if board.piece_at(sq))
 
     # ── Complexity amplifier for time-pressure errors ─────────────────────────
-    legal_cnt   = board.legal_moves.count()
+    legal_cnt   = len(legal_moves)
     complexity  = min(1.0, legal_cnt / 40.0)   # 0 = simple, 1 = very complex
     amp         = 1.0 + profile.errors.time_pressure_amp * complexity
 
     # ── Outright blunder: random legal move ───────────────────────────────────
     effective_blunder = profile.errors.blunder_rate * amp
     if random.random() < effective_blunder:
-        legal = [m.uci() for m in board.legal_moves]
-        chosen = random.choice(legal)
+        chosen = random.choice(legal_uci)
         log.debug("Profile %s: blunder → %s (random legal)", profile.id, chosen)
         return chosen, chosen != best_uci
 
@@ -246,8 +256,8 @@ def select_move_for_profile(
     # consistency=0 → temperature≈220 (nearly uniform)
     temperature = 10.0 + (1.0 - profile.errors.consistency) * 210.0
 
-    # Pre-compute legal moves count once to avoid O(n²) in _move_characteristics
-    legal_count_cache = board.legal_moves.count()
+    # Reuse the legal move count collected above.
+    legal_count_cache = legal_cnt
 
     weights = []
     for uci, raw_score in candidates:
@@ -257,7 +267,12 @@ def select_move_for_profile(
         # Softmax base weight
         base  = math.exp(-delta / temperature)
 
-        feats = _move_characteristics(uci, board, legal_count_cache)
+        try:
+            feats = _move_characteristics(uci, board, legal_count_cache)
+        except Exception as exc:
+            log.debug("Skipping candidate %s during feature extraction: %s", uci, exc)
+            weights.append(0.0)
+            continue
         smult = _style_multiplier(uci, feats, delta, profile, piece_cnt)
 
         weights.append(base * smult)

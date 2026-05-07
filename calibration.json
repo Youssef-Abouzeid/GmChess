@@ -1,4 +1,8 @@
 {
-  "x": 405,
-  "y": 142
+  "x": 402,
+  "y": 139,
+  "board_x": 402,
+  "board_y": 179,
+  "board_size": 950,
+  "top_bar_height": 40
 }

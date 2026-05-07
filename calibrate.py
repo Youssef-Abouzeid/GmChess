@@ -23,7 +23,7 @@ from pathlib import Path
 
 import config
 
-CAL_FILE = Path("calibration.json")
+CAL_FILE = Path(__file__).resolve().with_name(config.CALIBRATION_FILE)
 GRID_COLOR   = "#ff4040"
 LABEL_COLOR  = "#ffff00"
 OVERLAY_ALPHA = 0.70
@@ -48,6 +48,7 @@ class Calibrator:
 
         self._build_ui()
         self._bind_keys()
+        self._update_status()
 
     def _build_ui(self) -> None:
         # Top status bar
@@ -58,6 +59,12 @@ class Calibrator:
             bar, text="CALIBRATION MODE — Arrow keys to nudge  |  S=Save  |  Q=Quit",
             bg="#1a1a2e", fg="#e0e0e0", font=("Segoe UI", 9),
         ).pack(side=tk.LEFT, padx=8)
+
+        self._status_var = tk.StringVar(value="")
+        tk.Label(
+            bar, textvariable=self._status_var,
+            bg="#1a1a2e", fg="#888888", font=("Consolas", 9),
+        ).pack(side=tk.RIGHT, padx=8)
 
         bar.bind("<ButtonPress-1>",   self._drag_start)
         bar.bind("<B1-Motion>",       self._drag_motion)
@@ -75,7 +82,7 @@ class Calibrator:
         self._draw_calibration_grid()
 
     def _draw_calibration_grid(self) -> None:
-        sq = config.SQUARE_SIZE
+        sq = config.BOARD_SIZE / 8.0
         files = "abcdefgh"
         ranks = "87654321"
 
@@ -96,7 +103,7 @@ class Calibrator:
                 # Coordinate label
                 label = f"{files[c]}{ranks[r]}"
                 self._canvas.create_text(
-                    x1 + sq // 2, y1 + sq // 2,
+                    x1 + sq / 2, y1 + sq / 2,
                     text=label,
                     fill=LABEL_COLOR,
                     font=("Consolas", 11, "bold"),
@@ -110,8 +117,10 @@ class Calibrator:
 
     def _bind_keys(self) -> None:
         self.root.bind("<Key-q>",       lambda _: self.root.destroy())
+        self.root.bind("<Key-Q>",       lambda _: self.root.destroy())
         self.root.bind("<Escape>",      lambda _: self.root.destroy())
         self.root.bind("<Key-s>",       lambda _: self._save_position())
+        self.root.bind("<Key-S>",       lambda _: self._save_position())
         self.root.bind("<Left>",        lambda _: self._nudge(-1, 0))
         self.root.bind("<Right>",       lambda _: self._nudge(1, 0))
         self.root.bind("<Up>",          lambda _: self._nudge(0, -1))
@@ -126,6 +135,7 @@ class Calibrator:
         x = self.root.winfo_x() + dx
         y = self.root.winfo_y() + dy
         self.root.geometry(f"+{x}+{y}")
+        self._update_status()
 
     def _drag_start(self, event: tk.Event) -> None:
         self._drag_x = event.x_root - self.root.winfo_x()
@@ -135,16 +145,40 @@ class Calibrator:
         nx = event.x_root - self._drag_x
         ny = event.y_root - self._drag_y
         self.root.geometry(f"+{nx}+{ny}")
+        self._update_status()
+
+    def _current_position(self) -> dict[str, int]:
+        self.root.update_idletasks()
+        x = self.root.winfo_x()
+        y = self.root.winfo_y()
+        return {
+            "x": x,
+            "y": y,
+            "board_x": x + config.BOARD_CANVAS_X,
+            "board_y": y + config.BOARD_CANVAS_Y,
+            "board_size": config.BOARD_SIZE,
+            "top_bar_height": config.TOP_BAR_HEIGHT,
+        }
+
+    def _update_status(self) -> None:
+        if not hasattr(self, "_status_var"):
+            return
+        data = self._current_position()
+        self._status_var.set(f"x={data['x']} y={data['y']}")
 
     def _save_position(self) -> None:
-        data = {"x": self.root.winfo_x(), "y": self.root.winfo_y()}
+        data = self._current_position()
         CAL_FILE.write_text(json.dumps(data, indent=2))
         print(f"Saved position: {data}")
 
     def _load_position(self) -> dict:
         if CAL_FILE.exists():
             try:
-                return json.loads(CAL_FILE.read_text())
+                data = json.loads(CAL_FILE.read_text())
+                return {
+                    "x": int(data.get("x", 100)),
+                    "y": int(data.get("y", 100)),
+                }
             except Exception:
                 pass
         return {"x": 100, "y": 100}

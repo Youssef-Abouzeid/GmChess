@@ -27,7 +27,7 @@ from __future__ import annotations
 import threading
 import time
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -66,19 +66,44 @@ def nms(detections: list[dict], iou_thresh: float = config.IOU_THRESHOLD) -> lis
     """Non-Maximum Suppression across all piece types combined."""
     if not detections:
         return []
-    detections = sorted(detections, key=lambda d: d["score"], reverse=True)
-    kept: list[dict] = []
-    while detections:
-        best = detections.pop(0)
-        kept.append(best)
-        detections = [
-            d for d in detections
-            if _iou(
-                (best["x"], best["y"], best["w"], best["h"]),
-                (d["x"],    d["y"],    d["w"],    d["h"]),
-            ) < iou_thresh
-        ]
-    return kept
+
+    boxes = np.array(
+        [
+            (d["x"], d["y"], d["x"] + d["w"], d["y"] + d["h"], d["score"])
+            for d in detections
+        ],
+        dtype=np.float32,
+    )
+    x1, y1, x2, y2, scores = boxes.T
+    areas = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
+    order = scores.argsort()[::-1]
+    kept_idx: list[int] = []
+
+    while order.size:
+        i = int(order[0])
+        kept_idx.append(i)
+        if order.size == 1:
+            break
+
+        rest = order[1:]
+        xx1 = np.maximum(x1[i], x1[rest])
+        yy1 = np.maximum(y1[i], y1[rest])
+        xx2 = np.minimum(x2[i], x2[rest])
+        yy2 = np.minimum(y2[i], y2[rest])
+
+        inter_w = np.maximum(0.0, xx2 - xx1)
+        inter_h = np.maximum(0.0, yy2 - yy1)
+        inter = inter_w * inter_h
+        union = areas[i] + areas[rest] - inter
+        iou = np.divide(
+            inter,
+            union,
+            out=np.zeros_like(inter),
+            where=union > 0,
+        )
+        order = rest[iou < iou_thresh]
+
+    return [detections[i] for i in kept_idx]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,7 +148,8 @@ def detections_to_fen(
     flipped: bool = False,
 ) -> Optional[str]:
     """
-    Map screen-space detections onto an 8×8 grid and build a FEN string.
+    Map detections onto an 8x8 grid and build a FEN string.
+    Use board_x/board_y only when detections are in screen coordinates.
     Returns None if there are too few pieces or the FEN can't be parsed.
     """
     if len(detections) < MIN_PIECES_FOR_FEN:
@@ -204,6 +230,7 @@ class TemplateBank:
 
     def __init__(self, assets_dir: str = "assets"):
         self.templates: dict[str, np.ndarray] = {}
+        self.gray_templates: dict[str, np.ndarray] = {}
         self._load(assets_dir)
 
     def _load(self, assets_dir: str) -> None:
@@ -228,6 +255,10 @@ class TemplateBank:
                 img   = (rgb * alpha + white * (1 - alpha)).astype(np.uint8)
 
             self.templates[piece] = img
+            if img.ndim == 2:
+                self.gray_templates[piece] = img
+            else:
+                self.gray_templates[piece] = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         if missing:
             log.warning(
@@ -243,15 +274,17 @@ class TemplateBank:
         threshold: float     = config.CONFIDENCE_THRESHOLD,
     ) -> list[dict]:
         """Multi-scale template matching for a single piece type."""
-        tmpl = self.templates.get(piece)
-        if tmpl is None:
+        gray_tmpl = self.gray_templates.get(piece)
+        if gray_tmpl is None:
             return []
 
-        th, tw = tmpl.shape[:2]
+        th, tw = gray_tmpl.shape[:2]
         detections: list[dict] = []
 
-        gray_board = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
-        gray_tmpl  = cv2.cvtColor(tmpl, cv2.COLOR_BGR2GRAY)
+        if board_img.ndim == 2:
+            gray_board = board_img
+        else:
+            gray_board = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
 
         for scale in scales:
             new_w = max(1, int(tw * scale))
@@ -290,14 +323,17 @@ class VisionLoop:
     def __init__(
         self,
         fen_callback: Callable[[str], None],
+        status_callback: Optional[Callable[[str], None]] = None,
         assets_dir: str = "assets",
     ):
         self.fen_callback   = fen_callback
+        self.status_callback = status_callback
         self.bank           = TemplateBank(assets_dir)
         self._stop_evt      = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        # One worker per piece type — 12 threads max, reused across frames.
-        self._executor      = ThreadPoolExecutor(max_workers=12, thread_name_prefix="vision")
+        self._state_lock    = threading.Lock()
+        # One worker per piece type; recreated when the loop is restarted.
+        self._executor: Optional[ThreadPoolExecutor] = None
 
         self.board_screen_x: int = 0
         self.board_screen_y: int = 0
@@ -307,6 +343,7 @@ class VisionLoop:
         self._active_color: str = "w"
         self._flipped:     bool = False
         self._enabled:     bool = True
+        self._last_status: str = ""
         
         # Cache mss.mss() context to avoid expensive handle allocation every frame
         self._mss_context: Optional[mss.mss] = None
@@ -314,32 +351,53 @@ class VisionLoop:
     # ── Public API ───────────────────────────────────────────────────────────
 
     def set_board_region(self, screen_x: int, screen_y: int, board_px: int = config.BOARD_SIZE) -> None:
-        self.board_screen_x = screen_x
-        self.board_screen_y = screen_y
-        self.board_px       = board_px
+        with self._state_lock:
+            self.board_screen_x = screen_x
+            self.board_screen_y = screen_y
+            self.board_px       = board_px
 
     def set_active_color(self, color: str) -> None:
-        self._active_color = color
-        self._last_fen = ""   # force re-analysis with new side-to-move
+        with self._state_lock:
+            self._active_color = color
+            self._last_fen = ""   # force re-analysis with new side-to-move
+
+    def get_active_color(self) -> str:
+        with self._state_lock:
+            return self._active_color
+
+    def toggle_active_color(self) -> str:
+        with self._state_lock:
+            self._active_color = "b" if self._active_color == "w" else "w"
+            self._last_fen = ""
+            return self._active_color
 
     def set_flipped(self, flipped: bool) -> None:
-        self._flipped = flipped
-        self._last_fen = ""
+        with self._state_lock:
+            self._flipped = flipped
+            self._last_fen = ""
 
     def set_enabled(self, enabled: bool) -> None:
-        self._enabled = enabled
+        with self._state_lock:
+            self._enabled = enabled
+        self._emit_status("Vision active" if enabled else "Vision paused")
 
     def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._ensure_executor()
         self._stop_evt.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name="VisionLoop")
         self._thread.start()
+        self._emit_status("Vision active")
         log.info("VisionLoop started")
 
     def stop(self) -> None:
         self._stop_evt.set()
         if self._thread:
             self._thread.join(timeout=3)
-        self._executor.shutdown(wait=False)
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)
+            self._executor = None
         # Clean up mss context on shutdown
         if self._mss_context is not None:
             try:
@@ -351,12 +409,37 @@ class VisionLoop:
 
     # ── Internal ─────────────────────────────────────────────────────────────
 
-    def _capture_board(self) -> Optional[np.ndarray]:
+    def _ensure_executor(self) -> ThreadPoolExecutor:
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(
+                max_workers=12,
+                thread_name_prefix="vision",
+            )
+        return self._executor
+
+    def _emit_status(self, message: str) -> None:
+        with self._state_lock:
+            if message == self._last_status:
+                return
+            self._last_status = message
+        if self.status_callback is None:
+            return
+        try:
+            self.status_callback(message)
+        except Exception as exc:
+            log.error("vision status_callback raised: %s", exc)
+
+    def _capture_board(
+        self,
+        screen_x: int,
+        screen_y: int,
+        board_px: int,
+    ) -> Optional[np.ndarray]:
         region = {
-            "left":   self.board_screen_x,
-            "top":    self.board_screen_y,
-            "width":  self.board_px,
-            "height": self.board_px,
+            "left":   screen_x,
+            "top":    screen_y,
+            "width":  board_px,
+            "height": board_px,
         }
         try:
             # Reuse mss.mss() context to avoid expensive handle allocation every frame
@@ -370,20 +453,24 @@ class VisionLoop:
             log.error("Screen capture failed: %s", exc)
             # Reset context on error so it can be recreated
             self._mss_context = None
+            self._emit_status("Capture failed")
             return None
 
     def _detect_all(self, board_img: np.ndarray) -> list[dict]:
         """Match all 12 piece types in parallel (OpenCV releases the GIL)."""
-        futures = {
-            self._executor.submit(self.bank.match, board_img, piece): piece
-            for piece in config.PIECES
-        }
-        all_dets: list[dict] = []
-        for fut in as_completed(futures):
+        executor = self._ensure_executor()
+        gray_board = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
+
+        def match_piece(piece: str) -> list[dict]:
             try:
-                all_dets.extend(fut.result())
+                return self.bank.match(gray_board, piece)
             except Exception as exc:
-                log.error("match() raised for %s: %s", futures[fut], exc)
+                log.error("match() raised for %s: %s", piece, exc)
+                return []
+
+        all_dets: list[dict] = []
+        for dets in executor.map(match_piece, config.PIECES):
+            all_dets.extend(dets)
         return nms(all_dets)
 
     def _run(self) -> None:
@@ -392,33 +479,48 @@ class VisionLoop:
         while not self._stop_evt.is_set():
             t0 = time.monotonic()
 
-            if self._enabled and self.board_px > 0:
-                board_img = self._capture_board()
+            with self._state_lock:
+                enabled = self._enabled
+                board_screen_x = self.board_screen_x
+                board_screen_y = self.board_screen_y
+                board_px = self.board_px
+                active_color = self._active_color
+                flipped = self._flipped
+
+            if enabled and board_px > 0:
+                board_img = self._capture_board(board_screen_x, board_screen_y, board_px)
                 if board_img is not None:
                     detections = self._detect_all(board_img)
-
-                    screen_dets = [
-                        {**d, "x": d["x"] + self.board_screen_x,
-                              "y": d["y"] + self.board_screen_y}
-                        for d in detections
-                    ]
+                    if not detections:
+                        self._emit_status("No board detected")
+                        elapsed = time.monotonic() - t0
+                        sleep_t  = max(0.0, interval - elapsed)
+                        self._stop_evt.wait(timeout=sleep_t)
+                        continue
 
                     fen = detections_to_fen(
-                        screen_dets,
-                        board_x=self.board_screen_x,
-                        board_y=self.board_screen_y,
-                        board_px=self.board_px,
-                        active_color=self._active_color,
-                        flipped=self._flipped,
+                        detections,
+                        board_x=0,
+                        board_y=0,
+                        board_px=board_px,
+                        active_color=active_color,
+                        flipped=flipped,
                     )
 
-                    if fen and fen != self._last_fen:
-                        self._last_fen = fen
-                        log.debug("New FEN: %s", fen)
-                        try:
-                            self.fen_callback(fen)
-                        except Exception as exc:
-                            log.error("fen_callback raised: %s", exc)
+                    if fen:
+                        self._emit_status("Board detected")
+                        with self._state_lock:
+                            is_new = fen != self._last_fen
+                            if is_new:
+                                self._last_fen = fen
+                        if is_new:
+                            log.debug("New FEN: %s", fen)
+                            try:
+                                self.fen_callback(fen)
+                            except Exception as exc:
+                                log.error("fen_callback raised: %s", exc)
+                    else:
+                        self._emit_status("Board not recognized")
 
             elapsed = time.monotonic() - t0
             sleep_t  = max(0.0, interval - elapsed)
