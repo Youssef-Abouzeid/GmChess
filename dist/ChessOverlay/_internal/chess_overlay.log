@@ -1,0 +1,96 @@
+23:04:01  INFO      __main__            Chess Overlay Engine starting
+23:04:01  INFO      engine              EngineWorker started
+23:04:01  DEBUG     asyncio             Using proactor: IocpProactor
+23:04:01  WARNING   vision              Missing templates for: wP, wN, wB, wR, wQ, wK, bP, bN, bB, bR, bQ, bK  —  run create_assets.py first.
+23:04:01  INFO      vision              VisionLoop started
+23:04:01  INFO      overlay             Workers started
+23:04:01  DEBUG     overlay             Board region updated: 100, 140
+23:04:01  DEBUG     chess.engine        <UciProtocol (pid=6428)>: Connection made
+23:04:01  DEBUG     chess.engine        <UciProtocol (pid=6428)>: << uci
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> Stockfish 18 by the Stockfish developers (see AUTHORS file)
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> id name Stockfish 18
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> id author the Stockfish developers (see AUTHORS file)
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> 
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Debug Log File type string default <empty>
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name NumaPolicy type string default auto
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Threads type spin default 1 min 1 max 1024
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Hash type spin default 16 min 1 max 33554432
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Clear Hash type button
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Ponder type check default false
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name MultiPV type spin default 1 min 1 max 256
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Skill Level type spin default 20 min 0 max 20
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Move Overhead type spin default 10 min 0 max 5000
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name nodestime type spin default 0 min 0 max 10000
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name UCI_Chess960 type check default false
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name UCI_LimitStrength type check default false
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name UCI_Elo type spin default 1320 min 1320 max 3190
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name UCI_ShowWDL type check default false
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name SyzygyPath type string default <empty>
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name SyzygyProbeDepth type spin default 1 min 1 max 100
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name Syzygy50MoveRule type check default true
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name SyzygyProbeLimit type spin default 7 min 0 max 7
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name EvalFile type string default nn-c288c895ea92.nnue
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> option name EvalFileSmall type string default nn-37f18f62d772.nnue
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> uciok
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: << setoption name Threads value 8
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: << setoption name Hash value 512
+23:04:02  INFO      engine              Stockfish loaded from C:\Program files\stockfish\stockfish.exe (Threads=8, Hash=512MiB)
+23:04:02  DEBUG     chess.engine        <UciProtocol (pid=6428)>: >> info string Using 8 threads
+23:04:11  DEBUG     overlay             Board region updated: 399, 170
+23:04:14  DEBUG     overlay             Board region updated: 402, 177
+23:04:15  DEBUG     overlay             Board region updated: 400, 178
+23:04:24  DEBUG     overlay             Board region updated: 400, 180
+23:04:25  DEBUG     overlay             Board region updated: 402, 180
+23:04:25  DEBUG     overlay             Board region updated: 403, 180
+23:04:40  INFO      overlay             Shutting down…
+23:04:40  INFO      vision              VisionLoop stopped
+23:04:45  DEBUG     chess.engine        <UciProtocol (pid=6428)>: << quit
+23:04:46  DEBUG     chess.engine        <UciProtocol (pid=6428)>: Process exited
+23:04:46  DEBUG     chess.engine        <UciProtocol (pid=6428)>: Connection lost (exit code: 0, error: None)
+23:04:46  INFO      engine              EngineWorker stopped
+23:04:46  INFO      __main__            Exited cleanly
+23:06:32  INFO      __main__            Chess Overlay Engine starting
+23:06:33  INFO      engine              EngineWorker started
+23:06:33  DEBUG     asyncio             Using proactor: IocpProactor
+23:06:33  WARNING   vision              Missing templates for: wP, wN, wB, wR, wQ, wK, bP, bN, bB, bR, bQ, bK  —  run create_assets.py first.
+23:06:33  INFO      vision              VisionLoop started
+23:06:33  INFO      overlay             Workers started
+23:06:33  DEBUG     overlay             Board region updated: 100, 140
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: Connection made
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: << uci
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> Stockfish 18 by the Stockfish developers (see AUTHORS file)
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> id name Stockfish 18
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> id author the Stockfish developers (see AUTHORS file)
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> 
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Debug Log File type string default <empty>
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name NumaPolicy type string default auto
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Threads type spin default 1 min 1 max 1024
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Hash type spin default 16 min 1 max 33554432
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Clear Hash type button
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Ponder type check default false
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name MultiPV type spin default 1 min 1 max 256
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Skill Level type spin default 20 min 0 max 20
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Move Overhead type spin default 10 min 0 max 5000
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name nodestime type spin default 0 min 0 max 10000
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name UCI_Chess960 type check default false
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name UCI_LimitStrength type check default false
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name UCI_Elo type spin default 1320 min 1320 max 3190
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name UCI_ShowWDL type check default false
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name SyzygyPath type string default <empty>
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name SyzygyProbeDepth type spin default 1 min 1 max 100
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name Syzygy50MoveRule type check default true
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name SyzygyProbeLimit type spin default 7 min 0 max 7
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name EvalFile type string default nn-c288c895ea92.nnue
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> option name EvalFileSmall type string default nn-37f18f62d772.nnue
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> uciok
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: << setoption name Threads value 8
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: << setoption name Hash value 512
+23:06:33  INFO      engine              Stockfish loaded from C:\Program files\stockfish\stockfish.exe (Threads=8, Hash=512MiB)
+23:06:33  DEBUG     chess.engine        <UciProtocol (pid=9068)>: >> info string Using 8 threads
+23:06:37  INFO      overlay             Shutting down…
+23:06:37  INFO      vision              VisionLoop stopped
+23:06:42  DEBUG     chess.engine        <UciProtocol (pid=9068)>: << quit
+23:06:42  DEBUG     chess.engine        <UciProtocol (pid=9068)>: Process exited
+23:06:42  DEBUG     chess.engine        <UciProtocol (pid=9068)>: Connection lost (exit code: 0, error: None)
+23:06:42  INFO      engine              EngineWorker stopped
+23:06:42  INFO      __main__            Exited cleanly
