@@ -15,6 +15,8 @@ import logging
 import sys
 import tkinter as tk
 
+import config
+
 # ── Logging setup ────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.DEBUG,
@@ -22,7 +24,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("chess_overlay.log", encoding="utf-8"),
+        logging.FileHandler(config.app_path("chess_overlay.log"), encoding="utf-8"),
     ],
 )
 log = logging.getLogger(__name__)

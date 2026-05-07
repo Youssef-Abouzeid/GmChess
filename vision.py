@@ -231,7 +231,7 @@ def detections_to_fen(
 class TemplateBank:
     """Load piece PNG templates once; expose match() method."""
 
-    def __init__(self, assets_dir: str = "assets"):
+    def __init__(self, assets_dir: str = config.ASSETS_DIR):
         self.templates: dict[str, np.ndarray] = {}
         self.gray_templates: dict[str, np.ndarray] = {}
         self._load(assets_dir)
@@ -327,7 +327,7 @@ class VisionLoop:
         self,
         fen_callback: Callable[[str], None],
         status_callback: Optional[Callable[[str], None]] = None,
-        assets_dir: str = "assets",
+        assets_dir: str = config.ASSETS_DIR,
     ):
         self.fen_callback   = fen_callback
         self.status_callback = status_callback

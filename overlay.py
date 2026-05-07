@@ -172,8 +172,7 @@ class ChessOverlay:
 
     def _load_calibration(self) -> tuple[int, int]:
         import json
-        from pathlib import Path
-        cal_file = Path(__file__).resolve().with_name(config.CALIBRATION_FILE)
+        cal_file = config.CALIBRATION_PATH
         if cal_file.exists():
             try:
                 data = json.loads(cal_file.read_text())

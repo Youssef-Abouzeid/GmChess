@@ -19,11 +19,10 @@ from __future__ import annotations
 
 import json
 import tkinter as tk
-from pathlib import Path
 
 import config
 
-CAL_FILE = Path(__file__).resolve().with_name(config.CALIBRATION_FILE)
+CAL_FILE = config.CALIBRATION_PATH
 GRID_COLOR   = "#ff4040"
 LABEL_COLOR  = "#ffff00"
 OVERLAY_ALPHA = 0.70

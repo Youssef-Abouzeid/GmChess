@@ -1,6 +1,28 @@
 # config.py — Central configuration for Chess Overlay Engine
 
 # ── Window geometry ──────────────────────────────────────────────────────────
+from pathlib import Path
+import sys
+
+
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+APP_DIR = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parent
+BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR))
+
+
+def app_path(relative: str) -> Path:
+    """Writable path beside the exe in release builds, or beside source files."""
+    return APP_DIR / relative
+
+
+def resource_path(relative: str) -> Path:
+    """Read-only bundled resource path, with an external override beside the exe."""
+    external = APP_DIR / relative
+    if external.exists():
+        return external
+    return BUNDLE_DIR / relative
+
+
 WINDOW_WIDTH   = 1130
 WINDOW_HEIGHT  = 990
 BOARD_SIZE     = 950         # board canvas square (px)
@@ -12,6 +34,8 @@ BOARD_CANVAS_X = 0
 BOARD_CANVAS_Y = TOP_BAR_HEIGHT
 SQUARE_SIZE    = BOARD_SIZE // 8   # 118 px per square
 CALIBRATION_FILE = "calibration.json"
+CALIBRATION_PATH = app_path(CALIBRATION_FILE)
+ASSETS_DIR = str(resource_path("assets"))
 
 # ── Computer vision ──────────────────────────────────────────────────────────
 SCALES               = [0.9, 1.0, 1.1]
@@ -35,7 +59,8 @@ PIECE_TO_FEN = {
 
 # ── Stockfish ────────────────────────────────────────────────────────────────
 # Adjust to your local Stockfish binary path
-STOCKFISH_PATH = r"C:\Program files\stockfish\stockfish.exe"
+_BUNDLED_STOCKFISH = app_path("stockfish.exe")
+STOCKFISH_PATH = str(_BUNDLED_STOCKFISH if _BUNDLED_STOCKFISH.exists() else Path(r"C:\Program files\stockfish\stockfish.exe"))
 DEFAULT_SKILL_LEVEL = 20        # 0 (weakest) – 20 (strongest)
 DEFAULT_DEPTH       = 7
 PROFILE_DEPTH_CAP   = 8         # cap profile searches for quick arrows; set None to disable

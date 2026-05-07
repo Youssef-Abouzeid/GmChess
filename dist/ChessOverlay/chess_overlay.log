@@ -1,44 +1,226 @@
-23:06:49  INFO      __main__            Chess Overlay Engine starting
-23:06:49  INFO      engine              EngineWorker started
-23:06:49  DEBUG     asyncio             Using proactor: IocpProactor
-23:06:49  WARNING   vision              Missing templates for: wP, wN, wB, wR, wQ, wK, bP, bN, bB, bR, bQ, bK  —  run create_assets.py first.
-23:06:49  INFO      vision              VisionLoop started
-23:06:49  INFO      overlay             Workers started
-23:06:49  DEBUG     overlay             Board region updated: 100, 140
-23:06:49  DEBUG     chess.engine        <UciProtocol (pid=18960)>: Connection made
-23:06:49  DEBUG     chess.engine        <UciProtocol (pid=18960)>: << uci
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> Stockfish 18 by the Stockfish developers (see AUTHORS file)
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> id name Stockfish 18
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> id author the Stockfish developers (see AUTHORS file)
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> 
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Debug Log File type string default <empty>
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name NumaPolicy type string default auto
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Threads type spin default 1 min 1 max 1024
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Hash type spin default 16 min 1 max 33554432
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Clear Hash type button
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Ponder type check default false
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name MultiPV type spin default 1 min 1 max 256
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Skill Level type spin default 20 min 0 max 20
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Move Overhead type spin default 10 min 0 max 5000
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name nodestime type spin default 0 min 0 max 10000
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name UCI_Chess960 type check default false
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name UCI_LimitStrength type check default false
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name UCI_Elo type spin default 1320 min 1320 max 3190
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name UCI_ShowWDL type check default false
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name SyzygyPath type string default <empty>
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name SyzygyProbeDepth type spin default 1 min 1 max 100
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name Syzygy50MoveRule type check default true
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name SyzygyProbeLimit type spin default 7 min 0 max 7
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name EvalFile type string default nn-c288c895ea92.nnue
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> option name EvalFileSmall type string default nn-37f18f62d772.nnue
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> uciok
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: << setoption name Threads value 8
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: << setoption name Hash value 512
-23:06:50  INFO      engine              Stockfish loaded from C:\Program files\stockfish\stockfish.exe (Threads=8, Hash=512MiB)
-23:06:50  DEBUG     chess.engine        <UciProtocol (pid=18960)>: >> info string Using 8 threads
-23:06:55  DEBUG     chess.engine        <UciProtocol (pid=18960)>: Process exited
-23:06:55  DEBUG     chess.engine        <UciProtocol (pid=18960)>: Connection lost (exit code: 3221225786, error: None)
-23:06:55  INFO      overlay             Shutting down…
-23:06:55  INFO      vision              VisionLoop stopped
-23:07:00  INFO      engine              EngineWorker stopped
-23:07:00  INFO      __main__            Exited cleanly
+23:16:44  INFO      __main__            Chess Overlay Engine starting
+23:16:45  INFO      engine              EngineWorker started
+23:16:45  DEBUG     asyncio             Using proactor: IocpProactor
+23:16:45  DEBUG     chess.engine        <UciProtocol (pid=14920)>: Connection made
+23:16:45  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << uci
+23:16:45  INFO      vision              VisionLoop started
+23:16:45  INFO      overlay             Workers started
+23:16:45  DEBUG     overlay             Board region updated: 100, 140
+23:16:46  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> Stockfish 18 by the Stockfish developers (see AUTHORS file)
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> id name Stockfish 18
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> id author the Stockfish developers (see AUTHORS file)
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> 
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Debug Log File type string default <empty>
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name NumaPolicy type string default auto
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Threads type spin default 1 min 1 max 1024
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Hash type spin default 16 min 1 max 33554432
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Clear Hash type button
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Ponder type check default false
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name MultiPV type spin default 1 min 1 max 256
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Skill Level type spin default 20 min 0 max 20
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Move Overhead type spin default 10 min 0 max 5000
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name nodestime type spin default 0 min 0 max 10000
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name UCI_Chess960 type check default false
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name UCI_LimitStrength type check default false
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name UCI_Elo type spin default 1320 min 1320 max 3190
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name UCI_ShowWDL type check default false
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name SyzygyPath type string default <empty>
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name SyzygyProbeDepth type spin default 1 min 1 max 100
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name Syzygy50MoveRule type check default true
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name SyzygyProbeLimit type spin default 7 min 0 max 7
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name EvalFile type string default nn-c288c895ea92.nnue
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> option name EvalFileSmall type string default nn-37f18f62d772.nnue
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> uciok
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << setoption name Threads value 8
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << setoption name Hash value 512
+23:16:47  INFO      engine              Stockfish loaded from C:\Program files\stockfish\stockfish.exe (Threads=8, Hash=512MiB)
+23:16:47  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string Using 8 threads
+23:16:49  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:49  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:49  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:49  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:49  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:50  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:51  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:52  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:53  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:54  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:55  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:56  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:56  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:56  DEBUG     overlay             Board region updated: 402, 178
+23:16:56  DEBUG     vision              FEN rejected: missing king(s) — skipping transient frame
+23:16:56  DEBUG     vision              FEN pending stability (1/2): rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+23:16:56  DEBUG     vision              New FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << setoption name UCI_LimitStrength value true
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << setoption name UCI_Elo value 2000
+23:16:56  DEBUG     engine              Strength configured (profile): Advanced (2000) ELO=2000 depth=13 multipv=3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << setoption name MultiPV value 3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << ucinewgame
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << isready
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> readyok
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << position startpos
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << go depth 8
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string Available processors: 0-15
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string Using 8 threads
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string NNUE evaluation using nn-c288c895ea92.nnue (125MiB, (102384, 1024, 15, 32, 1))
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string NNUE evaluation using nn-37f18f62d772.nnue (6MiB, (22528, 128, 15, 32, 1))
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info string Network replica 1: Shared memory.
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 1 seldepth 2 multipv 1 score cp -1 nodes 248 nps 248000 hashfull 0 tbhits 0 time 1 pv e2e4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 1 seldepth 2 multipv 2 score cp -2 nodes 248 nps 248000 hashfull 0 tbhits 0 time 1 pv c2c3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 1 seldepth 2 multipv 3 score cp -2 nodes 248 nps 248000 hashfull 0 tbhits 0 time 1 pv d2d4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 2 seldepth 3 multipv 1 score cp 30 nodes 7090 nps 1772500 hashfull 0 tbhits 0 time 4 pv e2e4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 2 seldepth 3 multipv 2 score cp 24 nodes 7090 nps 1772500 hashfull 0 tbhits 0 time 4 pv d2d4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 2 seldepth 7 multipv 3 score cp 21 nodes 7090 nps 1772500 hashfull 0 tbhits 0 time 4 pv c2c3 d7d5 d2d4 b8d7 c1f4 g8f6
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 3 seldepth 5 multipv 1 score cp 37 nodes 9241 nps 1848200 hashfull 0 tbhits 0 time 5 pv e2e4 e7e5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 3 seldepth 4 multipv 2 score cp 33 nodes 9241 nps 1848200 hashfull 0 tbhits 0 time 5 pv d2d4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 3 seldepth 4 multipv 3 score cp 33 nodes 9241 nps 1848200 hashfull 0 tbhits 0 time 5 pv c2c3 d7d5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 4 seldepth 9 multipv 1 score cp 43 nodes 11875 nps 1979166 hashfull 0 tbhits 0 time 6 pv e2e4 e7e5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 4 seldepth 5 multipv 2 score cp 24 nodes 11875 nps 1979166 hashfull 0 tbhits 0 time 6 pv c2c3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 4 seldepth 7 multipv 3 score cp 22 nodes 11875 nps 1979166 hashfull 0 tbhits 0 time 6 pv d2d4 d7d5 c2c3 b8d7
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 5 seldepth 10 multipv 1 score cp 49 nodes 20589 nps 2058900 hashfull 0 tbhits 0 time 10 pv d2d4 d7d5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 5 seldepth 6 multipv 2 score cp 45 nodes 20589 nps 2058900 hashfull 0 tbhits 0 time 10 pv e2e4 e7e5 d2d4 e5d4 d1d4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 5 seldepth 6 multipv 3 score cp 21 nodes 20589 nps 2058900 hashfull 0 tbhits 0 time 10 pv b1c3 d7d5 e2e4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 6 seldepth 9 multipv 1 score cp 45 nodes 28391 nps 2027928 hashfull 0 tbhits 0 time 14 pv e2e4 c7c5 g1f3 b8c6 f1e2 d7d5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 6 seldepth 8 multipv 2 score cp 39 nodes 28391 nps 2027928 hashfull 0 tbhits 0 time 14 pv d2d4 g8f6 c2c4 e7e6 b1c3 d7d5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 6 seldepth 8 multipv 3 score cp 26 nodes 28391 nps 2027928 hashfull 0 tbhits 0 time 14 pv g1f3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 7 seldepth 12 multipv 1 score cp 42 nodes 48062 nps 1922480 hashfull 0 tbhits 0 time 25 pv e2e4 e7e5 g1f3 b8c6 f1b5 g8f6 b5c6 d7c6
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 7 seldepth 8 multipv 2 score cp 33 nodes 48062 nps 1922480 hashfull 0 tbhits 0 time 25 pv d2d4 g8f6 c1f4 c7c6 c2c3 d7d5 b1d2
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 7 seldepth 10 multipv 3 score cp 29 nodes 48062 nps 1922480 hashfull 0 tbhits 0 time 25 pv g1f3 d7d5 d2d4 g8f6 c2c4 d5c4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 8 seldepth 19 multipv 1 score cp 40 nodes 179526 nps 1972813 hashfull 2 tbhits 0 time 91 pv e2e4 e7e5 g1f3 g8f6 b1c3 b8c6 f1b5 f8b4 c3d5
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 8 seldepth 22 multipv 2 score cp 33 nodes 179526 nps 1972813 hashfull 2 tbhits 0 time 91 pv d2d4 g8f6 c2c4 e7e6 b1c3 d7d5 c1g5 d5c4
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> info depth 8 seldepth 15 multipv 3 score cp 28 nodes 179526 nps 1972813 hashfull 2 tbhits 0 time 91 pv g1f3 d7d5 d2d4 c8f5 c2c4 e7e6 b1c3
+23:16:56  DEBUG     chess.engine        <UciProtocol (pid=14920)>: >> bestmove e2e4 ponder e7e5
+23:16:56  DEBUG     profiles            Profile r2000: style diverged from best (e2e4 → d2d4)
+23:16:56  DEBUG     engine              Analysis done [Advanced (2000)]: d2d4 (score 33 cp, ponder g8f6, error=True)
+23:16:56  DEBUG     overlay             Board region updated: 401, 176
+23:17:02  DEBUG     overlay             Board region updated: 400, 178
+23:17:04  INFO      overlay             Shutting down…
+23:17:04  INFO      vision              VisionLoop stopped
+23:17:09  DEBUG     chess.engine        <UciProtocol (pid=14920)>: << quit
+23:17:10  DEBUG     chess.engine        <UciProtocol (pid=14920)>: Process exited
+23:17:10  DEBUG     chess.engine        <UciProtocol (pid=14920)>: Connection lost (exit code: 0, error: None)
+23:17:10  INFO      engine              EngineWorker stopped
+23:17:10  INFO      __main__            Exited cleanly
+23:17:28  INFO      __main__            Chess Overlay Engine starting
+23:17:29  INFO      engine              EngineWorker started
+23:17:29  DEBUG     asyncio             Using proactor: IocpProactor
+23:17:29  DEBUG     chess.engine        <UciProtocol (pid=17108)>: Connection made
+23:17:29  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << uci
+23:17:29  INFO      vision              VisionLoop started
+23:17:29  INFO      overlay             Workers started
+23:17:29  DEBUG     overlay             Board region updated: 402, 179
+23:17:29  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> Stockfish 18 by the Stockfish developers (see AUTHORS file)
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> id name Stockfish 18
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> id author the Stockfish developers (see AUTHORS file)
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> 
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Debug Log File type string default <empty>
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name NumaPolicy type string default auto
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Threads type spin default 1 min 1 max 1024
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Hash type spin default 16 min 1 max 33554432
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Clear Hash type button
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Ponder type check default false
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name MultiPV type spin default 1 min 1 max 256
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Skill Level type spin default 20 min 0 max 20
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Move Overhead type spin default 10 min 0 max 5000
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name nodestime type spin default 0 min 0 max 10000
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name UCI_Chess960 type check default false
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name UCI_LimitStrength type check default false
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name UCI_Elo type spin default 1320 min 1320 max 3190
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name UCI_ShowWDL type check default false
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name SyzygyPath type string default <empty>
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name SyzygyProbeDepth type spin default 1 min 1 max 100
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name Syzygy50MoveRule type check default true
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name SyzygyProbeLimit type spin default 7 min 0 max 7
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name EvalFile type string default nn-c288c895ea92.nnue
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> option name EvalFileSmall type string default nn-37f18f62d772.nnue
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> uciok
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << setoption name Threads value 8
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << setoption name Hash value 512
+23:17:30  INFO      engine              Stockfish loaded from C:\Program files\stockfish\stockfish.exe (Threads=8, Hash=512MiB)
+23:17:30  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string Using 8 threads
+23:17:31  DEBUG     vision              FEN pending stability (1/2): rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+23:17:31  DEBUG     vision              New FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << setoption name UCI_LimitStrength value true
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << setoption name UCI_Elo value 2000
+23:17:31  DEBUG     engine              Strength configured (profile): Advanced (2000) ELO=2000 depth=13 multipv=3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << setoption name MultiPV value 3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << ucinewgame
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << isready
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> readyok
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << position startpos
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: << go depth 8
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string Available processors: 0-15
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string Using 8 threads
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string NNUE evaluation using nn-c288c895ea92.nnue (125MiB, (102384, 1024, 15, 32, 1))
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string NNUE evaluation using nn-37f18f62d772.nnue (6MiB, (22528, 128, 15, 32, 1))
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info string Network replica 1: Shared memory.
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 1 seldepth 3 multipv 1 score cp 16 nodes 794 nps 794000 hashfull 0 tbhits 0 time 1 pv e2e3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 1 seldepth 2 multipv 2 score cp -1 nodes 794 nps 794000 hashfull 0 tbhits 0 time 1 pv e2e4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 1 seldepth 2 multipv 3 score cp -2 nodes 794 nps 794000 hashfull 0 tbhits 0 time 1 pv c2c3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 2 seldepth 3 multipv 1 score cp 72 nodes 1616 nps 1616000 hashfull 0 tbhits 0 time 1 pv d2d4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 2 seldepth 3 multipv 2 score cp 63 nodes 1616 nps 1616000 hashfull 0 tbhits 0 time 1 pv e2e4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 2 seldepth 3 multipv 3 score cp 61 nodes 1616 nps 1616000 hashfull 0 tbhits 0 time 1 pv e2e3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 3 seldepth 5 multipv 1 score cp 79 nodes 6772 nps 2257333 hashfull 0 tbhits 0 time 3 pv d2d4 c7c6
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 3 seldepth 6 multipv 2 score cp 42 nodes 6772 nps 2257333 hashfull 0 tbhits 0 time 3 pv e2e4 e7e5 d2d4 e5d4 d1d4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 3 seldepth 6 multipv 3 score cp 27 nodes 6772 nps 2257333 hashfull 0 tbhits 0 time 3 pv c2c3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 4 seldepth 7 multipv 1 score cp 46 nodes 14287 nps 3571750 hashfull 0 tbhits 0 time 4 pv e2e4 e7e5 g1f3 b8c6
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 4 seldepth 9 multipv 2 score cp 25 nodes 14287 nps 3571750 hashfull 0 tbhits 0 time 4 pv e2e3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 4 seldepth 8 multipv 3 score cp 20 nodes 14287 nps 3571750 hashfull 0 tbhits 0 time 4 pv d2d4 d7d5 c1f4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 5 seldepth 6 multipv 1 score cp 52 nodes 22029 nps 3147000 hashfull 0 tbhits 0 time 7 pv e2e4 e7e5 g1f3 b8c6 f1b5
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 5 seldepth 8 multipv 2 score cp 26 nodes 22029 nps 3147000 hashfull 0 tbhits 0 time 7 pv d2d4 d7d5 c1f4 b8d7 c2c3 g8f6
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 5 seldepth 7 multipv 3 score cp 24 nodes 22029 nps 3147000 hashfull 0 tbhits 0 time 7 pv e2e3 e7e5 d2d4 e5d4 e3d4 d7d5
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 6 seldepth 11 multipv 1 score cp 50 nodes 35704 nps 2746461 hashfull 0 tbhits 0 time 13 pv e2e4 e7e5 g1f3 b8c6 f1b5
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 6 seldepth 9 multipv 2 score cp 44 nodes 35704 nps 2746461 hashfull 0 tbhits 0 time 13 pv g1f3 d7d5 e2e3
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 6 seldepth 11 multipv 3 score cp 39 nodes 35704 nps 2746461 hashfull 0 tbhits 0 time 13 pv d2d4 d7d5 c2c4 e7e6 g1f3 d5c4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 7 seldepth 10 multipv 1 score cp 39 nodes 51183 nps 2437285 hashfull 0 tbhits 0 time 21 pv d2d4 d7d5 c2c4 e7e6 e2e3 f8e7
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 7 seldepth 11 multipv 2 score cp 38 nodes 51183 nps 2437285 hashfull 0 tbhits 0 time 21 pv e2e4 e7e5 g1f3 b8c6 f1b5 g8f6 e1g1
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 7 seldepth 10 multipv 3 score cp 33 nodes 51183 nps 2437285 hashfull 0 tbhits 0 time 21 pv g1f3 g8f6 c2c4 e7e6 d2d4 f8e7
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 8 seldepth 14 multipv 1 score cp 38 nodes 99336 nps 2113531 hashfull 0 tbhits 0 time 47 pv e2e4 e7e5 g1f3 g8f6 f3e5 f6e4 f1c4
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 8 seldepth 15 multipv 2 score cp 37 nodes 99336 nps 2113531 hashfull 0 tbhits 0 time 47 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 g1f3 f8e7 c1f4 e8g8
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> info depth 8 seldepth 21 multipv 3 score cp 29 nodes 99336 nps 2113531 hashfull 0 tbhits 0 time 47 pv c2c4 g8f6 d2d4 e7e6 b1c3 d7d5 e2e3 c7c5
+23:17:31  DEBUG     chess.engine        <UciProtocol (pid=17108)>: >> bestmove c2c3 ponder d7d5
+23:17:31  DEBUG     profiles            Profile r2000: style diverged from best (e2e4 → d2d4)
+23:17:31  DEBUG     engine              Analysis done [Advanced (2000)]: d2d4 (score 37 cp, ponder d7d5, error=True)
+23:17:33  INFO      overlay             Shutting down…
+23:17:33  INFO      vision              VisionLoop stopped
+23:17:34  DEBUG     chess.engine        <UciProtocol (pid=17108)>: Process exited
+23:17:34  DEBUG     chess.engine        <UciProtocol (pid=17108)>: Connection lost (exit code: 3221225786, error: None)
+23:17:38  INFO      engine              EngineWorker stopped
+23:17:38  INFO      __main__            Exited cleanly
